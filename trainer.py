@@ -14,7 +14,7 @@ class Trainer:
         self.game = game
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.args = args
-        self.mcts = MCTS(self.representationFunction, self.representationFunction, self.predictionFunction, self.game, self.args)
+        self.mcts = MCTS(self.representationFunction, self.representationFunction, self.predictionFunction, self.args)
 
     def self_play(self):
         game_memory = []

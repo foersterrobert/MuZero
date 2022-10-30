@@ -60,7 +60,7 @@ class Node:
         return prior_score - (child.total_value / child.visit_count)
 
 class MCTS:
-    def __init__(self, representationFunction, dynamicsFunction, predictionFunction,args):
+    def __init__(self, representationFunction, dynamicsFunction, predictionFunction, args):
         self.representationFunction = representationFunction
         self.dynamicsFunction = dynamicsFunction
         self.predictionFunction = predictionFunction
