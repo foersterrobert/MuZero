@@ -2,7 +2,7 @@ import numpy as np
 import math
 
 class Node:
-    def __init__(self, state, reward, player, prior, game, args, parent=None, action_taken=None):
+    def __init__(self, state, reward, player, prior, dynamicsFunction, args, parent=None, action_taken=None):
         self.state = state
         self.reward = reward
         self.player = player
@@ -11,20 +11,21 @@ class Node:
         self.total_value = 0
         self.visit_count = 0
         self.prior = prior
+        self.dynamicFunction = dynamicsFunction
         self.action_taken = action_taken
-        self.game = game
         self.args = args
 
     def expand(self, action_probs):
         for a, prob in enumerate(action_probs):
             if prob != 0:
                 child_state = self.state.copy()
-                child_state = self.game.drop_piece(child_state, a, self.player)
+                child_state, reward = self.dynamicFunction(child_state, a)
                 child = Node(
                     child_state,
-                    self.game.get_opponent_player(self.player),
+                    reward,
+                    -1 * self.player,
                     prob,
-                    self.game,
+                    self.dynamicFunction,
                     self.args,
                     parent=self,
                     action_taken=a,
@@ -35,7 +36,7 @@ class Node:
         self.total_value += value
         self.visit_count += 1
         if self.parent is not None:
-            self.parent.backpropagate(self.game.get_opponent_value(value))
+            self.parent.backpropagate(-1 * value)
 
     def is_expandable(self):
         return len(self.children) > 0
@@ -59,29 +60,27 @@ class Node:
         return prior_score - (child.total_value / child.visit_count)
 
 class MCTS:
-    def __init__(self, model, game, args):
-        self.model = model
-        self.game = game
+    def __init__(self, representationFunction, dynamicsFunction, predictionFunction,args):
+        self.representationFunction = representationFunction
+        self.dynamicsFunction = dynamicsFunction
+        self.predictionFunction = predictionFunction
         self.args = args
 
-    def search(self, state, player=1):
-        root = Node(state, player, prior=0, game=self.game, args=self.args)
+    def search(self, observation, available_actions, player=1):
+        hidden_state, reward = self.representationFunction(observation)
+        root = Node(hidden_state, reward, player, 0, self.dynamicsFunction, self.args)
+        action_probs, value = self.predictionFunction(hidden_state)
+        action_probs = action_probs * available_actions
+        action_probs = action_probs / np.sum(action_probs)
+        root.expand(action_probs)
 
         for simulation in range(self.args['num_simulation_games']):
             node = root
 
             while node.is_expandable():
                 node = node.select_child()
-
-            is_terminal, value = self.game.check_terminal_and_value(node.state, node.action_taken)
-            value = self.game.get_opponent_value(value) # value was based on enemy winning
-
-            if not is_terminal:
-                canonical_state = self.game.get_canonical_state(node.state, node.player)
-                action_probs, value = self.model.predict(canonical_state, augment=False)
-                valid_moves = self.game.get_valid_locations(node.state)
-                action_probs = action_probs * valid_moves
-                action_probs = action_probs / np.sum(action_probs)
+                # flip hidden state if player is -1
+                action_probs, value = self.predictionFunction.predict(node.state)
                 node.expand(action_probs)
             node.backpropagate(value)
 

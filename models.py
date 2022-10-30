@@ -4,26 +4,33 @@ import torch.nn.functional as F
 
 # Creates hidden state + reward based on old hidden state and action 
 class DynamicsFunction(nn.Module):
-    def __init__(self, game, num_resBlocks=16, hidden_planes=256):
+    def __init__(self, num_resBlocks=16, hidden_planes=256):
         super().__init__()
-        self.game = game
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         self.startBlock = nn.Sequential(
             nn.Conv2d(4, hidden_planes, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(hidden_planes)
+            nn.BatchNorm2d(hidden_planes),
+            nn.ReLU()
         )
         self.resBlocks = nn.ModuleList([ResBlock(hidden_planes, hidden_planes) for _ in range(num_resBlocks)])
         self.endBlock = nn.Sequential(
             nn.Conv2d(hidden_planes, 4, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(4),
+            nn.BatchNorm2d(3),
+        )
+        self.rewardBlock = nn.Sequential(
+            nn.Conv2d(3, 1, kernel_size=1, stride=1, padding=0),
+            nn.Flatten(),
+            nn.Linear(9, 1)
         )
 
     def forward(self, x):
         x = self.startBlock(x)
         for block in self.resBlocks:
             x = block(x)
-        return x
+        x = self.endBlock(x)
+        reward = self.rewardBlock(x)
+        return x, reward
 
 # Creates policy and value based on hidden state
 class PredictionFunction(nn.Module):
@@ -34,7 +41,8 @@ class PredictionFunction(nn.Module):
         
         self.startBlock = nn.Sequential(
             nn.Conv2d(3, hidden_planes, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(hidden_planes)
+            nn.BatchNorm2d(hidden_planes),
+            nn.ReLU()
         )
         self.resBlocks = nn.ModuleList([ResBlock(hidden_planes, hidden_planes) for _ in range(num_resBlocks)])
 
@@ -66,14 +74,14 @@ class PredictionFunction(nn.Module):
 
 # Creates initial hidden state based on observation | several observations
 class RepresentationFunction(nn.Module):
-    def __init__(self, game, num_resBlocks=16, hidden_planes=256):
+    def __init__(self, num_resBlocks=16, hidden_planes=256):
         super().__init__()
-        self.game = game
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         self.startBlock = nn.Sequential(
             nn.Conv2d(3, hidden_planes, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(hidden_planes)
+            nn.BatchNorm2d(hidden_planes),
+            nn.ReLU()
         )
         self.resBlocks = nn.ModuleList([ResBlock(hidden_planes, hidden_planes) for _ in range(num_resBlocks)])
         self.endBlock = nn.Sequential(
@@ -85,6 +93,7 @@ class RepresentationFunction(nn.Module):
         x = self.startBlock(x)
         for block in self.resBlocks:
             x = block(x)
+        x = self.endBlock(x)
         return x
 
 class ResBlock(nn.Module):
