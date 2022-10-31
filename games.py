@@ -10,52 +10,49 @@ class TicTacToe:
         return 'TicTacToe'
 
     def get_initial_state(self):
-        return np.zeros((self.row_count, self.column_count), dtype=np.int8)
+        observation = np.zeros((self.row_count, self.column_count), dtype=np.int8)
+        valid_locations = self.get_valid_locations(observation)
+        return observation, valid_locations
 
-    def is_position_a_winner(self, state, action):
+    def is_position_a_winner(self, observation, action):
         if action is None:
             return False
 
         row = action // self.column_count
         column = action % self.column_count
-        mark = state[row][column]
+        mark = observation[row][column]
         
         return (
-            sum(state[row]) == mark * self.column_count # row
-            or sum(state[:, column]) == mark * self.row_count # column 
-            or sum(np.diag(state)) == mark * self.row_count # diagonal 
-            or sum(np.diag(np.fliplr(state))) == mark * self.row_count # flipped diagonal
+            sum(observation[row]) == mark * self.column_count # row
+            or sum(observation[:, column]) == mark * self.row_count # column 
+            or sum(np.diag(observation)) == mark * self.row_count # diagonal 
+            or sum(np.diag(np.fliplr(observation))) == mark * self.row_count # flipped diagonal
         )
 
-    def drop_piece(self, state, action, player):
+    def step(self, observation, action, player):
         row = action // self.column_count
         column = action % self.column_count
-        state[row][column] = player
-        return state
+        observation[row][column] = player
+        valid_locations = self.get_valid_locations(observation)
+        return observation, valid_locations
 
-    def get_valid_locations(self, state):
-        return (state.reshape(-1) == 0).astype(np.uint8)
+    def get_valid_locations(self, observation):
+        return (observation.reshape(-1) == 0).astype(np.uint8)
 
-    def get_canonical_state(self, state, player):
-        return state * player
+    def get_canonical_state(self, hidden_state, player):
+        return hidden_state if player == 1 else hidden_state[::-1]
 
-    def get_encoded_state(self, state):
-        encoded_state = np.vstack((
-            (state == -1).reshape(1, self.row_count, self.column_count),
-            (state == 0).reshape(1, self.row_count, self.column_count),
-            (state == 1).reshape(1, self.row_count, self.column_count)
+    def get_encoded_observation(self, observation):
+        encoded_observation = np.vstack((
+            (observation == -1).reshape(1, self.row_count, self.column_count),
+            (observation == 0).reshape(1, self.row_count, self.column_count),
+            (observation == 1).reshape(1, self.row_count, self.column_count)
         )).astype(np.float32)
-        return encoded_state
+        return encoded_observation
 
-    def get_opponent_value(self, score):
-        return -1*score
-
-    def get_opponent_player(self, player):
-        return -1*player
-
-    def check_terminal_and_value(self, state, action):
-        if self.is_position_a_winner(state, action):
+    def check_terminal_and_value(self, observation, action):
+        if self.is_position_a_winner(observation, action):
             return (True, 1)
-        if sum(self.get_valid_locations(state)) == 0:
+        if sum(self.get_valid_locations(observation)) == 0:
             return (True, 0)
         return (False, 0)

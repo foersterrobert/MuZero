@@ -7,6 +7,10 @@ from games import TicTacToe
 from models import PredictionFunction, DynamicsFunction, RepresentationFunction
 from trainer import Trainer
 
+# Don't understand: backpropagation + training
+# In training: scale hidden state ([0, 1])
+# In training: scale loss 1/k
+
 torch.manual_seed(0)
 random.seed(0)
 np.random.seed(0)
@@ -21,6 +25,7 @@ if __name__ == '__main__':
         'num_epochs': 4,                  # number of epochs for training on self-play data for each iteration
         'batch_size': 128,                # batch size for training
         'temperature': 1,                 # temperature for the softmax selection of moves
+        'K': 5,                           # unroll K steps of the dynamics function when training
         'c1': 1.25,                       # the value of the constant policy
         'c2': 19652,                      # the value of the constant policy
         'discount': 0.997

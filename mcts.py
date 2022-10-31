@@ -19,7 +19,7 @@ class Node:
         for a, prob in enumerate(action_probs):
             if prob != 0:
                 child_state = self.state.copy()
-                child_state, reward = self.dynamicFunction(child_state, a)
+                child_state, reward = self.dynamicFunction.predict(child_state, a)
                 child = Node(
                     child_state,
                     reward,
@@ -60,10 +60,11 @@ class Node:
         return prior_score - (child.total_value / child.visit_count)
 
 class MCTS:
-    def __init__(self, representationFunction, dynamicsFunction, predictionFunction, args):
+    def __init__(self, representationFunction, dynamicsFunction, predictionFunction, game, args):
         self.representationFunction = representationFunction
         self.dynamicsFunction = dynamicsFunction
         self.predictionFunction = predictionFunction
+        self.game = game
         self.args = args
 
     def search(self, observation, available_actions, player=1):
@@ -79,9 +80,10 @@ class MCTS:
 
             while node.is_expandable():
                 node = node.select_child()
-                # flip hidden state if player is -1
-                action_probs, value = self.predictionFunction.predict(node.state)
-                node.expand(action_probs)
+
+            canonical_hidden_state = self.game.get_canonical_state(node.state, node.player)
+            action_probs, value = self.predictionFunction(canonical_hidden_state)
+            node.expand(action_probs)
             node.backpropagate(value)
 
         return root

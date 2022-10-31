@@ -12,25 +12,26 @@ class Trainer:
         self.predictionFunction = predictionFunction
         self.optimizer = optimizer
         self.game = game
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.args = args
         self.mcts = MCTS(self.representationFunction, self.representationFunction, self.predictionFunction, self.args)
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def self_play(self):
         game_memory = []
         player = 1
-        state = self.game.get_initial_state()
+        observation, valid_locations = self.game.get_initial_state()
 
         while True:
-            root = self.mcts.search(self.game.get_canonical_state(state, player), 1)
+            encoded_observation = self.game.get_encoded_observation(observation)
+            canonical_observation = self.game.get_canonical_state(encoded_observation, player)
+            root = self.mcts.search(canonical_observation, valid_locations, player=1)
+
             action_probs = [0] * self.game.action_size
             for child in root.children:
                 action_probs[child.action_taken] = child.visit_count
             action_probs /= np.sum(action_probs)
 
             game_memory.append((root.state, player, action_probs))
-            if self.args['augment']:
-                game_memory.append((self.game.get_augmented_state(root.state), player, np.flip(action_probs)))
 
             visit_counts = [child.visit_count for child in root.children]
             actions = [child.action_taken for child in root.children]
@@ -43,14 +44,14 @@ class Trainer:
                 visit_count_distribution = visit_count_distribution / sum(visit_count_distribution)
                 action = np.random.choice(actions, p=visit_count_distribution)
 
-            state = self.game.drop_piece(state, action, player)
+            observation, valid_locations = self.game.step(observation, action, player)
 
-            is_terminal, reward = self.game.check_terminal_and_value(state, action)
+            is_terminal, reward = self.game.check_terminal_and_value(observation, action)
             if is_terminal:
                 return_memory = []
                 for hist_state, hist_player, hist_action_probs in game_memory:
                     return_memory.append((
-                        self.game.get_encoded_state(hist_state), hist_action_probs, reward * ((-1) ** (hist_player != player))
+                        hist_state, hist_action_probs, reward * ((-1) ** (hist_player != player))
                     ))
                 return return_memory
 

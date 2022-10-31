@@ -31,6 +31,14 @@ class DynamicsFunction(nn.Module):
         x = self.endBlock(x)
         reward = self.rewardBlock(x)
         return x, reward
+    
+    def predict(self, state, action):
+        row = action // 3
+        col = action % 3
+        action = torch.zeros((1, 3, 3)).to(self.device)
+        action[0, row, col] = 1
+        x = torch.cat((state, action), dim=0)
+        return self(x)
 
 # Creates policy and value based on hidden state
 class PredictionFunction(nn.Module):
