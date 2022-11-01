@@ -2,6 +2,26 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+class MuZero(nn.Module):
+    def __init__(self):
+        self.dynamicsFunction = DynamicsFunction()
+        self.predictionFunction = PredictionFunction()
+        self.representationFunction = RepresentationFunction()
+
+    def predict(self, hidden_state):
+        return self.predictionFunction(hidden_state)
+
+    def represent(self, observation):
+        return self.representationFunction(observation)
+
+    def dynamics(self, hidden_state, action):
+        row = action // 3
+        col = action % 3
+        action = torch.zeros((1, 3, 3)).to(self.device)
+        action[0, row, col] = 1
+        x = torch.cat((hidden_state, action), dim=0)
+        return self.dynamicsFunction(x)
+
 # Creates hidden state + reward based on old hidden state and action 
 class DynamicsFunction(nn.Module):
     def __init__(self, num_resBlocks=16, hidden_planes=256):
@@ -32,14 +52,6 @@ class DynamicsFunction(nn.Module):
         reward = self.rewardBlock(x)
         return x, reward
     
-    def predict(self, state, action):
-        row = action // 3
-        col = action % 3
-        action = torch.zeros((1, 3, 3)).to(self.device)
-        action[0, row, col] = 1
-        x = torch.cat((state, action), dim=0)
-        return self(x)
-
 # Creates policy and value based on hidden state
 class PredictionFunction(nn.Module):
     def __init__(self, game, num_resBlocks=20, hidden_planes=256):

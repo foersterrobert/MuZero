@@ -2,7 +2,7 @@ import numpy as np
 import math
 
 class Node:
-    def __init__(self, state, reward, player, prior, dynamicsFunction, args, parent=None, action_taken=None):
+    def __init__(self, state, reward, player, prior, muZero, args, parent=None, action_taken=None):
         self.state = state
         self.reward = reward
         self.player = player
@@ -11,7 +11,7 @@ class Node:
         self.total_value = 0
         self.visit_count = 0
         self.prior = prior
-        self.dynamicFunction = dynamicsFunction
+        self.muZero = muZero
         self.action_taken = action_taken
         self.args = args
 
@@ -19,13 +19,13 @@ class Node:
         for a, prob in enumerate(action_probs):
             if prob != 0:
                 child_state = self.state.copy()
-                child_state, reward = self.dynamicFunction.predict(child_state, a)
+                child_state, reward = self.muZero.dynamics(child_state, a)
                 child = Node(
                     child_state,
                     reward,
                     -1 * self.player,
                     prob,
-                    self.dynamicFunction,
+                    self.muZero,
                     self.args,
                     parent=self,
                     action_taken=a,
@@ -60,17 +60,15 @@ class Node:
         return prior_score - (child.total_value / child.visit_count)
 
 class MCTS:
-    def __init__(self, representationFunction, dynamicsFunction, predictionFunction, game, args):
-        self.representationFunction = representationFunction
-        self.dynamicsFunction = dynamicsFunction
-        self.predictionFunction = predictionFunction
+    def __init__(self, muZero, game, args):
+        self.muZero = muZero
         self.game = game
         self.args = args
 
     def search(self, observation, available_actions, player=1):
-        hidden_state, reward = self.representationFunction(observation)
-        root = Node(hidden_state, reward, player, 0, self.dynamicsFunction, self.args)
-        action_probs, value = self.predictionFunction(hidden_state)
+        hidden_state, reward = self.muZero.represent(observation)
+        root = Node(hidden_state, reward, player, 0, self.muZero, self.args)
+        action_probs, value = self.muZero.predict(hidden_state)
         action_probs = action_probs * available_actions
         action_probs = action_probs / np.sum(action_probs)
         root.expand(action_probs)
@@ -82,7 +80,7 @@ class MCTS:
                 node = node.select_child()
 
             canonical_hidden_state = self.game.get_canonical_state(node.state, node.player)
-            action_probs, value = self.predictionFunction(canonical_hidden_state)
+            action_probs, value = self.muZero.predict(canonical_hidden_state)
             node.expand(action_probs)
             node.backpropagate(value)
 

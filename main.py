@@ -4,7 +4,7 @@ from torch.optim import Adam
 import random
 import numpy as np
 from games import TicTacToe
-from models import PredictionFunction, DynamicsFunction, RepresentationFunction
+from models import MuZero
 from trainer import Trainer
 
 # Don't understand: backpropagation + training
@@ -28,13 +28,12 @@ if __name__ == '__main__':
         'K': 5,                           # unroll K steps of the dynamics function when training
         'c1': 1.25,                       # the value of the constant policy
         'c2': 19652,                      # the value of the constant policy
+        'n': 10,                          # steps to unroll for reward prediction
         'discount': 0.997
     }
     game = TicTacToe()
-    representationFunction = RepresentationFunction(5, 64)
-    dynamicsFunction = DynamicsFunction(5, 64)
-    predictionFunction = PredictionFunction(5, 128)
-    optimizer = Adam(predictionFunction.parameters(), lr=0.001, weight_decay=0.0001)
+    muZero = MuZero()
+    optimizer = Adam(muZero.parameters(), lr=0.001, weight_decay=0.0001)
 
-    trainer = Trainer(representationFunction, dynamicsFunction, predictionFunction, optimizer, game, args)
+    trainer = Trainer(muZero, optimizer, game, args)
     trainer.run()
