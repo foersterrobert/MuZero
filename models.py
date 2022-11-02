@@ -3,9 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class MuZero(nn.Module):
-    def __init__(self):
+    def __init__(self, game):
+        super().__init__()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dynamicsFunction = DynamicsFunction()
-        self.predictionFunction = PredictionFunction()
+        self.predictionFunction = PredictionFunction(game)
         self.representationFunction = RepresentationFunction()
 
     def predict(self, hidden_state):
@@ -17,9 +19,9 @@ class MuZero(nn.Module):
     def dynamics(self, hidden_state, action):
         row = action // 3
         col = action % 3
-        action = torch.zeros((1, 3, 3)).to(self.device)
-        action[0, row, col] = 1
-        x = torch.cat((hidden_state, action), dim=0)
+        action = torch.zeros((1, 1, 3, 3)).to(self.device)
+        action[0, 0, row, col] = 1
+        x = torch.cat((hidden_state, action), dim=1)
         return self.dynamicsFunction(x)
 
 # Creates hidden state + reward based on old hidden state and action 
@@ -35,7 +37,7 @@ class DynamicsFunction(nn.Module):
         )
         self.resBlocks = nn.ModuleList([ResBlock(hidden_planes, hidden_planes) for _ in range(num_resBlocks)])
         self.endBlock = nn.Sequential(
-            nn.Conv2d(hidden_planes, 4, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(hidden_planes, 3, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(3),
         )
         self.rewardBlock = nn.Sequential(

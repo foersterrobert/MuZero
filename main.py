@@ -18,21 +18,35 @@ np.random.seed(0)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 if __name__ == '__main__':
+    # args = {
+    #     'num_iterations': 48,             # number of highest level iterations
+    #     'num_train_games': 500,           # number of self-play games to play within each iteration
+    #     'num_simulation_games': 800,      # number of mcts simulations when selecting a move within self-play
+    #     'num_training_steps': 32,         # number of epochs for training on self-play data for each iteration
+    #     'batch_size': 128,                # batch size for training
+    #     'temperature': 1,                 # temperature for the softmax selection of moves
+    #     'K': 5,                           # unroll K steps of the dynamics function when training
+    #     'c1': 1.25,                       # the value of the constant policy
+    #     'c2': 19652,                      # the value of the constant policy
+    #     'n': 10,                          # steps to unroll for reward prediction
+    #     'discount': 0.997
+    # }
     args = {
         'num_iterations': 48,             # number of highest level iterations
         'num_train_games': 500,           # number of self-play games to play within each iteration
-        'num_simulation_games': 800,      # number of mcts simulations when selecting a move within self-play
-        'num_epochs': 4,                  # number of epochs for training on self-play data for each iteration
+        'num_simulation_games': 40,       # number of mcts simulations when selecting a move within self-play
+        'num_training_steps': 24,         # number of epochs for training on self-play data for each iteration
         'batch_size': 128,                # batch size for training
         'temperature': 1,                 # temperature for the softmax selection of moves
         'K': 5,                           # unroll K steps of the dynamics function when training
         'c1': 1.25,                       # the value of the constant policy
         'c2': 19652,                      # the value of the constant policy
         'n': 10,                          # steps to unroll for reward prediction
-        'discount': 0.997
+        'discount': 0.997,
+        'value_loss_weight': 0.25,
     }
     game = TicTacToe()
-    muZero = MuZero()
+    muZero = MuZero(game)
     optimizer = Adam(muZero.parameters(), lr=0.001, weight_decay=0.0001)
 
     trainer = Trainer(muZero, optimizer, game, args)

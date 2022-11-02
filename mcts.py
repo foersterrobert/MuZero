@@ -1,5 +1,6 @@
 import numpy as np
 import math
+import torch
 
 class Node:
     def __init__(self, state, reward, player, prior, muZero, args, parent=None, action_taken=None):
@@ -18,7 +19,7 @@ class Node:
     def expand(self, action_probs):
         for a, prob in enumerate(action_probs):
             if prob != 0:
-                child_state = self.state.copy()
+                child_state = self.state.detach().clone()
                 child_state, reward = self.muZero.dynamics(child_state, a)
                 child = Node(
                     child_state,
@@ -54,7 +55,7 @@ class Node:
         return best_child
 
     def get_ucb_score(self, child):
-        prior_score = child.prior * math.sqrt(self.visit_count) / (1 + child.visit_count) * (self.args.c1 + math.log((self.visit_count + self.args.c2 + 1) / self.args.c2))
+        prior_score = child.prior * math.sqrt(self.visit_count) / (1 + child.visit_count) * (self.args['c1'] + math.log((self.visit_count + self.args['c2'] + 1) / self.args['c2']))
         if child.visit_count == 0:
             return prior_score
         return prior_score - (child.total_value / child.visit_count)
@@ -65,12 +66,18 @@ class MCTS:
         self.game = game
         self.args = args
 
-    def search(self, observation, available_actions, player=1):
-        hidden_state, reward = self.muZero.represent(observation)
+    def search(self, observation, reward, available_actions, player=1):
+        observation = torch.tensor(observation).float().to(self.muZero.device).reshape(1, 3, 3, 3)
+        hidden_state = self.muZero.represent(observation)
         root = Node(hidden_state, reward, player, 0, self.muZero, self.args)
+
         action_probs, value = self.muZero.predict(hidden_state)
+        action_probs = action_probs.detach().cpu().numpy()[0]
+        value = value.detach().cpu().numpy()[0][0]
+
         action_probs = action_probs * available_actions
         action_probs = action_probs / np.sum(action_probs)
+
         root.expand(action_probs)
 
         for simulation in range(self.args['num_simulation_games']):
@@ -81,6 +88,9 @@ class MCTS:
 
             canonical_hidden_state = self.game.get_canonical_state(node.state, node.player)
             action_probs, value = self.muZero.predict(canonical_hidden_state)
+            action_probs = action_probs.detach().cpu().numpy()[0]
+            value = value.detach().cpu().numpy()[0][0]
+
             node.expand(action_probs)
             node.backpropagate(value)
 
