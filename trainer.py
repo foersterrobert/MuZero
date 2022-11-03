@@ -62,19 +62,23 @@ class Trainer:
         batch = self.replayBuffer.sample(self.args['batch_size'])
         for observation, actions, action_probs, values, rewards in batch:
             observation = torch.tensor(observation).to(self.device)
+            action_probs = torch.tensor(action_probs).to(self.device)
+            values = torch.tensor(values, dtype=torch.float).to(self.device).reshape(-1, 1)
+            rewards = torch.tensor(rewards, dtype=torch.float).to(self.device).reshape(-1, 1)
+
             hidden_state = self.muZero.represent(observation)
             predicted_action_probs, predicted_value = self.muZero.predict(hidden_state)
 
             policy_loss += -torch.sum(torch.log(predicted_action_probs) * action_probs[0])
-            value_loss += F.mse_loss(predicted_value, values[0])
+            value_loss += F.mse_loss(predicted_value[0], values[0])
 
             for k in range(1, self.args['K']):
                 hidden_state, predicted_reward = self.muZero.dynamics(hidden_state, actions[k - 1])
                 predicted_action_probs, predicted_value = self.muZero.predict(hidden_state)
 
                 policy_loss += -torch.sum(torch.log(predicted_action_probs) * action_probs[k])
-                value_loss += F.mse_loss(predicted_value, values[k])
-                reward_loss += F.mse_loss(predicted_reward, rewards[k])
+                value_loss += F.mse_loss(predicted_value[0], values[k])
+                reward_loss += F.mse_loss(predicted_reward[0], rewards[k])
 
         loss = value_loss * self.args['value_loss_weight'] + policy_loss + reward_loss
         loss = loss.mean()
