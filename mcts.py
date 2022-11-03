@@ -86,7 +86,7 @@ class MCTS:
             while node.is_expandable():
                 node = node.select_child()
 
-            canonical_hidden_state = self.game.get_canonical_state(node.state, node.player)
+            canonical_hidden_state = node.state if node.player == 1 else torch.flip(node.state, [1])
             action_probs, value = self.muZero.predict(canonical_hidden_state)
             action_probs = action_probs.detach().cpu().numpy()[0]
             value = value.detach().cpu().numpy()[0][0]
