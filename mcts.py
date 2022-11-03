@@ -3,7 +3,7 @@ import math
 import torch
 
 class Node:
-    def __init__(self, state, reward, player, prior, muZero, args, parent=None, action_taken=None):
+    def __init__(self, state, reward, player, prior, muZero, args, game, parent=None, action_taken=None):
         self.state = state
         self.reward = reward
         self.player = player
@@ -15,6 +15,7 @@ class Node:
         self.muZero = muZero
         self.action_taken = action_taken
         self.args = args
+        self.game = game
 
     def expand(self, action_probs):
         for a, prob in enumerate(action_probs):
@@ -24,10 +25,11 @@ class Node:
                 child = Node(
                     child_state,
                     reward,
-                    -1 * self.player,
+                    self.game.get_opponent_player(self.player),
                     prob,
                     self.muZero,
                     self.args,
+                    self.game,
                     parent=self,
                     action_taken=a,
                 )
@@ -37,7 +39,7 @@ class Node:
         self.total_value += value
         self.visit_count += 1
         if self.parent is not None:
-            self.parent.backpropagate(-1 * value)
+            self.parent.backpropagate(self.game.get_opponent_value(value))
 
     def is_expandable(self):
         return len(self.children) > 0
@@ -69,7 +71,7 @@ class MCTS:
     def search(self, observation, reward, available_actions, player=1):
         observation = torch.tensor(observation).float().to(self.muZero.device).reshape(1, 3, 3, 3)
         hidden_state = self.muZero.represent(observation)
-        root = Node(hidden_state, reward, player, 0, self.muZero, self.args)
+        root = Node(hidden_state, reward, player, 0, self.muZero, self.args, self.game)
 
         action_probs, value = self.muZero.predict(hidden_state)
         action_probs = action_probs.detach().cpu().numpy()[0]
@@ -86,7 +88,7 @@ class MCTS:
             while node.is_expandable():
                 node = node.select_child()
 
-            canonical_hidden_state = node.state if node.player == 1 else torch.flip(node.state, [1])
+            canonical_hidden_state = self.game.get_canonical_hidden_state(node.state, node.player)
             action_probs, value = self.muZero.predict(canonical_hidden_state)
             action_probs = action_probs.detach().cpu().numpy()[0]
             value = value.detach().cpu().numpy()[0][0]

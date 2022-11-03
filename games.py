@@ -12,7 +12,8 @@ class TicTacToe:
     def get_initial_state(self):
         observation = np.zeros((self.row_count, self.column_count), dtype=np.int8)
         valid_locations = self.get_valid_locations(observation)
-        return observation, valid_locations, 0
+        reward = 0
+        return observation, valid_locations, reward
 
     def is_position_a_winner(self, observation, action):
         if action is None:
@@ -34,12 +35,16 @@ class TicTacToe:
         column = action % self.column_count
         observation[row][column] = player
         valid_locations = self.get_valid_locations(observation)
-        return observation, valid_locations, 0
+        is_terminal, reward = self.check_terminal_and_value(observation, action)
+        return observation, valid_locations, reward, is_terminal
 
     def get_valid_locations(self, observation):
         return (observation.reshape(-1) == 0).astype(np.uint8)
 
-    def get_canonical_state(self, hidden_state, player):
+    def get_canonical_observation(self, state, player):
+        return state if player == 1 else state[::-1].copy()
+
+    def get_canonical_hidden_state(self, hidden_state, player):
         return hidden_state if player == 1 else hidden_state.flip(2)
 
     def get_encoded_observation(self, observation):
@@ -56,3 +61,9 @@ class TicTacToe:
         if sum(self.get_valid_locations(observation)) == 0:
             return (True, 0)
         return (False, 0)
+    
+    def get_opponent_player(self, player):
+        return player * -1
+
+    def get_opponent_value(self, value):
+        return value * -1
