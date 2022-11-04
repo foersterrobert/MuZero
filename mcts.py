@@ -90,7 +90,7 @@ class MCTS:
 
             canonical_hidden_state = self.game.get_canonical_state(node.state, node.player)
             action_probs, value = self.muZero.predict(canonical_hidden_state)
-            action_probs = action_probs[0]
+            action_probs = torch.softmax(action_probs, dim=1).squeeze(0)
             value = value.item()
 
             node.expand(action_probs)
