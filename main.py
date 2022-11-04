@@ -43,9 +43,21 @@ if __name__ == '__main__':
         'n': 10,                          # steps to unroll for reward prediction
         'discount': 0.997,
         'value_loss_weight': 0.25,
+        'dynamicsFunction': {
+            'num_resBlocks': 5,
+            'hidden_planes': 128
+        },
+        'predictionFunction': {
+            'num_resBlocks': 5,
+            'hidden_planes': 128
+        },
+        'representationFunction': {
+            'num_resBlocks': 4,
+            'hidden_planes': 128
+        }
     }
     game = TicTacToe()
-    muZero = MuZero(game)
+    muZero = MuZero(game, args).to(device)
     optimizer = Adam(muZero.parameters(), lr=0.001, weight_decay=0.0001)
 
     trainer = Trainer(muZero, optimizer, game, args)

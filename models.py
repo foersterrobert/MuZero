@@ -3,12 +3,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class MuZero(nn.Module):
-    def __init__(self, game):
+    def __init__(self, game, args):
         super().__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.dynamicsFunction = DynamicsFunction()
-        self.predictionFunction = PredictionFunction(game)
-        self.representationFunction = RepresentationFunction()
+        self.dynamicsFunction = DynamicsFunction(**args['dynamicsFunction'])
+        self.predictionFunction = PredictionFunction(game, **args['predictionFunction'])
+        self.representationFunction = RepresentationFunction(**args['representationFunction'])
 
     def predict(self, hidden_state):
         return self.predictionFunction(hidden_state)
@@ -28,7 +28,6 @@ class MuZero(nn.Module):
 class DynamicsFunction(nn.Module):
     def __init__(self, num_resBlocks=16, hidden_planes=256):
         super().__init__()
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         self.startBlock = nn.Sequential(
             nn.Conv2d(4, hidden_planes, kernel_size=3, stride=1, padding=1),
@@ -59,7 +58,6 @@ class PredictionFunction(nn.Module):
     def __init__(self, game, num_resBlocks=20, hidden_planes=256):
         super().__init__()
         self.game = game
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         self.startBlock = nn.Sequential(
             nn.Conv2d(3, hidden_planes, kernel_size=3, stride=1, padding=1),
@@ -98,7 +96,6 @@ class PredictionFunction(nn.Module):
 class RepresentationFunction(nn.Module):
     def __init__(self, num_resBlocks=16, hidden_planes=256):
         super().__init__()
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         self.startBlock = nn.Sequential(
             nn.Conv2d(3, hidden_planes, kernel_size=3, stride=1, padding=1),
