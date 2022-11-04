@@ -17,6 +17,7 @@ class Node:
         self.args = args
         self.game = game
 
+    @torch.no_grad()
     def expand(self, action_probs):
         for a, prob in enumerate(action_probs):
             if prob != 0:
@@ -68,17 +69,16 @@ class MCTS:
         self.game = game
         self.args = args
 
+    @torch.no_grad()
     def search(self, observation, reward, available_actions, player=1):
-        observation = torch.tensor(observation).float().to(self.muZero.device).reshape(1, 3, 3, 3)
         hidden_state = self.muZero.represent(observation)
         root = Node(hidden_state, reward, player, 0, self.muZero, self.args, self.game)
 
         action_probs, value = self.muZero.predict(hidden_state)
-        action_probs = action_probs.detach().cpu().numpy()[0]
-        value = value.detach().cpu().numpy()[0][0]
+        value = value.item()
 
-        action_probs = action_probs * available_actions
-        action_probs = action_probs / np.sum(action_probs)
+        action_probs = action_probs[0] * available_actions
+        action_probs = action_probs / torch.sum(action_probs)
 
         root.expand(action_probs)
 
@@ -88,10 +88,10 @@ class MCTS:
             while node.is_expandable():
                 node = node.select_child()
 
-            canonical_hidden_state = self.game.get_canonical_hidden_state(node.state, node.player)
+            canonical_hidden_state = self.game.get_canonical_state(node.state, node.player)
             action_probs, value = self.muZero.predict(canonical_hidden_state)
-            action_probs = action_probs.detach().cpu().numpy()[0]
-            value = value.detach().cpu().numpy()[0][0]
+            action_probs = action_probs[0]
+            value = value.item()
 
             node.expand(action_probs)
             node.backpropagate(value)

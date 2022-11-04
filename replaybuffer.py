@@ -18,7 +18,7 @@ class ReplayBuffer:
             observation, action, action_probs, final_reward, reward, game_idx = self.buffer[i]
             action_probs_list, action_list, final_reward_list, reward_list = [action_probs], [action], [final_reward * self.args['discount'] ** self.args['n']], [reward]
 
-            for k in range(self.args['K'] - 1):
+            for k in range(self.args['K']):
                 if i + k + 1 < len(self.buffer) and self.buffer[i + k + 1][4] == game_idx:
                     _, next_action, next_action_probs, next_final_reward, next_reward, _ = self.buffer[i + k + 1]
                     action_list.append(next_action)

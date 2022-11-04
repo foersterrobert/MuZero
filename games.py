@@ -1,16 +1,17 @@
-import numpy as np
+import torch
 
 class TicTacToe:
     def __init__(self):
         self.row_count = 3
         self.column_count = 3
         self.action_size = 9
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def __repr__(self):
         return 'TicTacToe'
 
     def get_initial_state(self):
-        observation = np.zeros((self.row_count, self.column_count), dtype=np.int8)
+        observation = torch.zeros((self.row_count, self.column_count), dtype=torch.int8, device=self.device)
         valid_locations = self.get_valid_locations(observation)
         reward = 0
         return observation, valid_locations, reward
@@ -26,8 +27,8 @@ class TicTacToe:
         return (
             sum(observation[row]) == mark * self.column_count # row
             or sum(observation[:, column]) == mark * self.row_count # column 
-            or sum(np.diag(observation)) == mark * self.row_count # diagonal 
-            or sum(np.diag(np.fliplr(observation))) == mark * self.row_count # flipped diagonal
+            or sum(torch.diag(observation)) == mark * self.row_count # diagonal 
+            or sum(torch.diag(torch.fliplr(observation))) == mark * self.row_count # flipped diagonal
         )
 
     def step(self, observation, action, player):
@@ -39,20 +40,17 @@ class TicTacToe:
         return observation, valid_locations, reward, is_terminal
 
     def get_valid_locations(self, observation):
-        return (observation.reshape(-1) == 0).astype(np.uint8)
+        return (observation.reshape(-1) == 0).int()
 
-    def get_canonical_observation(self, state, player):
-        return state if player == 1 else state[::-1].copy()
-
-    def get_canonical_hidden_state(self, hidden_state, player):
+    def get_canonical_state(self, hidden_state, player):
         return hidden_state if player == 1 else hidden_state.flip(2)
 
     def get_encoded_observation(self, observation):
-        encoded_observation = np.vstack((
+        encoded_observation = torch.vstack((
             (observation == -1).reshape(1, self.row_count, self.column_count),
             (observation == 0).reshape(1, self.row_count, self.column_count),
             (observation == 1).reshape(1, self.row_count, self.column_count)
-        )).astype(np.float32)
+        )).float().unsqueeze(0)
         return encoded_observation
 
     def check_terminal_and_value(self, observation, action):

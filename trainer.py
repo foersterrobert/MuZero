@@ -1,9 +1,9 @@
-import numpy as np
 import torch
 import torch.nn.functional as F
 from tqdm import trange
 from mcts import MCTS
 from replaybuffer import ReplayBuffer
+import numpy as np
 
 class Trainer:
     def __init__(self, muZero, optimizer, game, args):
@@ -22,23 +22,23 @@ class Trainer:
 
         while True:
             encoded_observation = self.game.get_encoded_observation(observation)
-            canonical_observation = self.game.get_canonical_observation(encoded_observation, player)
+            canonical_observation = self.game.get_canonical_state(encoded_observation, player)
             root = self.mcts.search(canonical_observation, reward, valid_locations, player=1)
 
-            action_probs = [0] * self.game.action_size
+            action_probs = torch.zeros(self.game.action_size)
             for child in root.children:
                 action_probs[child.action_taken] = child.visit_count
-            action_probs /= np.sum(action_probs)
+            action_probs /= torch.sum(action_probs)
 
             # sample action from the mcts policy | based on temperature
             if self.args['temperature'] == 0:
-                action = np.argmax(action_probs)
+                action = torch.argmax(action_probs).item()
             elif self.args['temperature'] == float('inf'):
                 action = np.random.choice([r for r in range(self.game.action_size) if action_probs[r] > 0])
             else:
                 temperature_action_probs = action_probs ** (1 / self.args['temperature'])
-                temperature_action_probs /= np.sum(temperature_action_probs)
-                action = np.random.choice(len(temperature_action_probs), p=temperature_action_probs)
+                temperature_action_probs /= torch.sum(temperature_action_probs)
+                action = np.random.choice(len(temperature_action_probs), p=temperature_action_probs.detach().numpy())
 
             game_memory.append((root.state, action, player, action_probs, reward))
 
@@ -61,8 +61,6 @@ class Trainer:
 
         batch = self.replayBuffer.sample(self.args['batch_size'])
         for observation, actions, action_probs, values, rewards in batch:
-            observation = torch.tensor(observation).to(self.device)
-            action_probs = torch.tensor(action_probs).to(self.device)
             values = torch.tensor(values, dtype=torch.float).to(self.device).reshape(-1, 1)
             rewards = torch.tensor(rewards, dtype=torch.float).to(self.device).reshape(-1, 1)
 
@@ -72,7 +70,8 @@ class Trainer:
             policy_loss += -torch.sum(torch.log(predicted_action_probs) * action_probs[0])
             value_loss += F.mse_loss(predicted_value[0], values[0])
 
-            for k in range(1, self.args['K']):
+            for k in range(1, self.args['K'] + 1):
+                hidden_state = self.game.get_canonical_state(hidden_state, -1)
                 hidden_state, predicted_reward = self.muZero.dynamics(hidden_state, actions[k - 1])
                 predicted_action_probs, predicted_value = self.muZero.predict(hidden_state)
 
