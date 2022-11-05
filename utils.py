@@ -1,5 +1,5 @@
-import numpy as np
 import torch
+import numpy as np
 
 class KaggleAgent:
     def __init__(self, model, game):
@@ -12,8 +12,7 @@ class KaggleAgent:
         observation[observation==2] = -1
         observation = torch.tensor(observation, dtype=torch.int8, device=self.game.device)
         valid_moves = self.game.get_valid_locations(observation)
-        print(valid_moves)
-
+        
         encoded_observation = self.game.get_encoded_observation(observation)
         canonical_observation = self.game.get_canonical_state(encoded_observation, player)
 
@@ -21,7 +20,5 @@ class KaggleAgent:
             policy, _ = self.model.predict(canonical_observation)
             policy = torch.softmax(policy, dim=1).squeeze(0)
             policy = policy * valid_moves
-        print(policy)
         action = torch.argmax(policy).item()
-        print(action)
         return action

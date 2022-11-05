@@ -1,6 +1,6 @@
+import torch
 import numpy as np
 import math
-import torch
 
 class Node:
     def __init__(self, state, reward, player, prior, muZero, args, game, parent=None, action_taken=None):

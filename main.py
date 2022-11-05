@@ -1,7 +1,7 @@
 import torch
 from torch.optim import Adam
-import random
 import numpy as np
+import random
 from games import TicTacToe
 from models import MuZero
 from trainer import Trainer
@@ -31,11 +31,11 @@ if __name__ == '__main__':
     #     'discount': 0.997
     # }
     args = {
-        'num_iterations': 10,             # number of highest level iterations
-        'num_train_games': 50,            # number of self-play games to play within each iteration
-        'num_simulation_games': 32,       # number of mcts simulations when selecting a move within self-play
-        'num_training_steps': 6,          # number of epochs for training on self-play data for each iteration
-        'batch_size': 96,                 # batch size for training
+        'num_iterations': 20,             # number of highest level iterations
+        'num_train_games': 100,           # number of self-play games to play within each iteration
+        'num_simulation_games': 50,       # number of mcts simulations when selecting a move within self-play
+        'num_training_steps': 8,          # number of epochs for training on self-play data for each iteration
+        'batch_size': 128,                # batch size for training
         'temperature': 1,                 # temperature for the softmax selection of moves
         'K': 3,                           # unroll K steps of the dynamics function when training
         'c1': 1.25,                       # the value of the constant policy

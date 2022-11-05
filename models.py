@@ -6,23 +6,26 @@ class MuZero(nn.Module):
     def __init__(self, game, args):
         super().__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.dynamicsFunction = DynamicsFunction(**args['dynamicsFunction'])
+        # self.dynamicsFunction = DynamicsFunction(**args['dynamicsFunction'])
         self.predictionFunction = PredictionFunction(game, **args['predictionFunction'])
-        self.representationFunction = RepresentationFunction(**args['representationFunction'])
+        # self.representationFunction = RepresentationFunction(**args['representationFunction'])
 
     def predict(self, hidden_state):
         return self.predictionFunction(hidden_state)
 
     def represent(self, observation):
-        return self.representationFunction(observation)
+        return observation
+        # return self.representationFunction(observation)
 
     def dynamics(self, hidden_state, action):
         row = action // 3
         col = action % 3
-        action = torch.zeros((1, 1, 3, 3)).to(self.device)
-        action[0, 0, row, col] = 1
-        x = torch.cat((hidden_state, action), dim=1)
-        return self.dynamicsFunction(x)
+        hidden_state[0, 2, row, col] = 1
+        return hidden_state, 0
+        # action = torch.zeros((1, 1, 3, 3)).to(self.device)
+        # action[0, 0, row, col] = 1
+        # x = torch.cat((hidden_state, action), dim=1)
+        # return self.dynamicsFunction(x)
 
 # Creates hidden state + reward based on old hidden state and action 
 class DynamicsFunction(nn.Module):
@@ -71,7 +74,7 @@ class PredictionFunction(nn.Module):
             nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(32 * self.game.row_count * self.game.column_count, self.game.action_size),
+            nn.Linear(32 * self.game.row_count * self.game.column_count, self.game.action_size)
         )
         self.value_head = nn.Sequential(
             nn.Conv2d(hidden_planes, 3, kernel_size=1, stride=1, padding=0),

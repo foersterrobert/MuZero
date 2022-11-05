@@ -1,9 +1,9 @@
 import torch
 import torch.nn.functional as F
+import numpy as np
 from tqdm import trange
 from mcts import MCTS
 from replaybuffer import ReplayBuffer
-import numpy as np
 
 class Trainer:
     def __init__(self, muZero, optimizer, game, args):
@@ -57,7 +57,7 @@ class Trainer:
     def train(self):
         policy_loss = 0
         value_loss = 0
-        reward_loss = 0
+        # reward_loss = 0
 
         batch = self.replayBuffer.sample(self.args['batch_size'])
         for observation, actions, action_probs, values, rewards in batch:
@@ -67,19 +67,19 @@ class Trainer:
             hidden_state = self.muZero.represent(observation)
             predicted_action_probs, predicted_value = self.muZero.predict(hidden_state)
 
-            policy_loss += -torch.sum(torch.log(predicted_action_probs) * action_probs[0])
+            policy_loss += F.cross_entropy(predicted_action_probs, action_probs[0].unsqueeze(0))
             value_loss += F.mse_loss(predicted_value[0], values[0])
 
             for k in range(1, self.args['K'] + 1):
+                hidden_state, predicted_reward = self.muZero.dynamics(hidden_state.clone(), actions[k - 1])
                 hidden_state = self.game.get_canonical_state(hidden_state, -1)
-                hidden_state, predicted_reward = self.muZero.dynamics(hidden_state, actions[k - 1])
                 predicted_action_probs, predicted_value = self.muZero.predict(hidden_state)
 
-                policy_loss += -torch.sum(torch.log(predicted_action_probs) * action_probs[k])
+                policy_loss += F.cross_entropy(predicted_action_probs, action_probs[k].unsqueeze(0))
                 value_loss += F.mse_loss(predicted_value[0], values[k])
-                reward_loss += F.mse_loss(predicted_reward[0], rewards[k])
+                # reward_loss += F.mse_loss(predicted_reward[0], rewards[k])
 
-        loss = value_loss * self.args['value_loss_weight'] + policy_loss + reward_loss
+        loss = value_loss * self.args['value_loss_weight'] + policy_loss #+ reward_loss
         loss = loss.mean()
     
         self.optimizer.zero_grad()
@@ -93,9 +93,8 @@ class Trainer:
 
             self.muZero.eval()
             for train_game_idx in trange(self.args['num_train_games'], desc="train_game"):
-                self.replayBuffer.add(
-                    self.self_play(train_game_idx + iteration * self.args['num_train_games'])
-                )
+                game_memory = self.self_play(train_game_idx + iteration * self.args['num_train_games'])
+                self.replayBuffer.add(game_memory)
 
             self.muZero.train()
             for training_step in trange(self.args['num_training_steps'], desc="training_step"):
