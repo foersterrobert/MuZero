@@ -5,9 +5,10 @@ import torch.nn.functional as F
 class MuZero(nn.Module):
     def __init__(self, game, args):
         super().__init__()
+        self.game = game
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # self.dynamicsFunction = DynamicsFunction(**args['dynamicsFunction'])
-        self.predictionFunction = PredictionFunction(game, **args['predictionFunction'])
+        self.predictionFunction = PredictionFunction(self.game, **args['predictionFunction'])
         # self.representationFunction = RepresentationFunction(**args['representationFunction'])
 
     def predict(self, hidden_state):
@@ -17,11 +18,22 @@ class MuZero(nn.Module):
         return observation
         # return self.representationFunction(observation)
 
-    def dynamics(self, hidden_state, action, player):
+    def dynamics(self, hidden_state, action):
         row = action // 3
         col = action % 3
-        dim = 2 if player == 1 else 0
-        hidden_state[0, dim, row, col] = 1
+        if (torch.sum(hidden_state[0, 1]) != 0 
+            and max(torch.sum(hidden_state[0, 0], dim=0)) < 3 
+            and max(torch.sum(hidden_state[0, 0], dim=1)) < 3
+            and sum(torch.diag(hidden_state[0, 0])) < 3
+            and sum(torch.diag(torch.fliplr(hidden_state[0, 0]))) < 3
+            and max(torch.sum(hidden_state[0, 2], dim=0)) < 3
+            and max(torch.sum(hidden_state[0, 2], dim=1)) < 3
+            and sum(torch.diag(hidden_state[0, 2])) < 3
+            and sum(torch.diag(torch.fliplr(hidden_state[0, 2]))) < 3
+            and hidden_state[0, 1, row, col] == 1
+        ):
+            hidden_state[0, 1, row, col] = 0
+            hidden_state[0, 2, row, col] = 1
         return hidden_state, 0
         # action = torch.zeros((1, 1, 3, 3)).to(self.device)
         # action[0, 0, row, col] = 1

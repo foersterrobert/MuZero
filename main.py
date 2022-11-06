@@ -10,6 +10,11 @@ from trainer import Trainer
 # In training: scale hidden state ([0, 1])
 # In training: scale loss 1/k
 
+# add terminal state to replay buffer
+# add absorbing states to training
+
+# check winner func
+
 torch.manual_seed(0)
 random.seed(0)
 np.random.seed(0)
@@ -36,8 +41,8 @@ if __name__ == '__main__':
         'num_iterations': 20,             # number of highest level iterations
         'num_train_games': 500,           # number of self-play games to play within each iteration
         'num_simulation_games': 60,       # number of mcts simulations when selecting a move within self-play
-        'num_training_steps': 4,     # 200  # number of epochs for training on self-play data for each iteration
-        'batch_size': 64,                 # batch size for training
+        'num_training_steps': 50,         # number of epochs for training on self-play data for each iteration
+        'batch_size': 256,                # batch size for training
         'temperature': 1,                 # temperature for the softmax selection of moves
         'K': 3,                           # unroll K steps of the dynamics function when training
         'c1': 1.25,                       # the value of the constant policy

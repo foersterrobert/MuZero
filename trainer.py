@@ -13,13 +13,13 @@ class Trainer:
         self.game = game
         self.args = args
         self.mcts = MCTS(self.muZero, self.game, self.args)
-        self.replayBuffer = ReplayBuffer(self.args)
+        self.replayBuffer = ReplayBuffer(self.args, self.game)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def self_play(self, game_idx):
         game_memory = []
         player = 1
-        observation, valid_locations, reward = self.game.get_initial_state()
+        observation, valid_locations, reward, is_terminal = self.game.get_initial_state()
 
         while True:
             encoded_observation = self.game.get_encoded_observation(observation)
@@ -41,68 +41,77 @@ class Trainer:
                 temperature_action_probs /= torch.sum(temperature_action_probs)
                 action = np.random.choice(len(temperature_action_probs), p=temperature_action_probs.detach().numpy())
 
-            game_memory.append((root.state, action, player, action_probs, reward))
+            game_memory.append((root.state, action, player, action_probs, reward, is_terminal))
 
             observation, valid_locations, reward, is_terminal = self.game.step(observation, action, player)
 
             if is_terminal:
                 return_memory = []
-                for hist_state, hist_action, hist_player, hist_action_probs, hist_reward in game_memory:
+                for hist_state, hist_action, hist_player, hist_action_probs, hist_reward, hist_terminal in game_memory:
                     return_memory.append((
-                        hist_state, hist_action, hist_action_probs, reward * ((-1) ** (hist_player != player)), hist_reward, game_idx
+                        hist_state, hist_action, hist_action_probs, reward * ((-1) ** (hist_player != player)), hist_reward, game_idx, hist_terminal
                     ))
+                return_memory.append((
+                    self.game.get_canonical_state(self.game.get_encoded_observation(observation), self.game.get_opponent_player(player)),
+                    0,
+                    torch.zeros(self.game.action_size),
+                    -1 * reward,
+                    0,
+                    game_idx,
+                    is_terminal
+                ))
                 return return_memory
 
             player = self.game.get_opponent_player(player)
 
     def train(self):
-        # policy_loss = 0
-        # value_loss = 0
-        # # reward_loss = 0
+        policy_loss = 0
+        value_loss = 0
+        # reward_loss = 0
 
-        # batch = self.replayBuffer.sample(self.args['batch_size'])
-        # for observation, actions, action_probs, values, rewards in batch:
-        #     values = torch.tensor(values, dtype=torch.float).to(self.device).reshape(-1, 1)
-        #     rewards = torch.tensor(rewards, dtype=torch.float).to(self.device).reshape(-1, 1)
+        batch = self.replayBuffer.sample(self.args['batch_size'])
+        for observation, actions, action_probs, values, rewards in batch:
+            values = torch.tensor(values, dtype=torch.float).to(self.device).reshape(-1, 1)
+            # rewards = torch.tensor(rewards, dtype=torch.float).to(self.device).reshape(-1, 1)
 
-        #     hidden_state = self.muZero.represent(observation)
-        #     predicted_action_probs, predicted_value = self.muZero.predict(hidden_state)
+            hidden_state = self.muZero.represent(observation)
+            predicted_action_probs, predicted_value = self.muZero.predict(hidden_state)
 
-        #     policy_loss += F.cross_entropy(predicted_action_probs, action_probs[0].unsqueeze(0))
-        #     value_loss += F.mse_loss(predicted_value[0], values[0])
+            policy_loss += F.cross_entropy(predicted_action_probs, action_probs[0].unsqueeze(0))
+            value_loss += F.mse_loss(predicted_value[0], values[0])
 
-        #     for k in range(1, self.args['K'] + 1):
-        #         hidden_state, predicted_reward = self.muZero.dynamics(hidden_state.clone(), actions[k - 1], player=1)
-        #         hidden_state = self.game.get_canonical_state(hidden_state, -1)
-        #         predicted_action_probs, predicted_value = self.muZero.predict(hidden_state)
+            for k in range(1, self.args['K'] + 1):
+                hidden_state, predicted_reward = self.muZero.dynamics(hidden_state.clone(), actions[k - 1])
+                hidden_state = self.game.get_canonical_state(hidden_state, -1)
+                predicted_action_probs, predicted_value = self.muZero.predict(hidden_state)
 
-        #         policy_loss += F.cross_entropy(predicted_action_probs, action_probs[k].unsqueeze(0))
-        #         value_loss += F.mse_loss(predicted_value[0], values[k])
-        #         # reward_loss += F.mse_loss(predicted_reward[0], rewards[k])
+                policy_loss += F.cross_entropy(predicted_action_probs, action_probs[k].unsqueeze(0))
+                value_loss += F.mse_loss(predicted_value[0], values[k])
+                # reward_loss += F.mse_loss(predicted_reward[0], rewards[k])
 
-        # loss = value_loss * self.args['value_loss_weight'] + policy_loss #+ reward_loss
-        # loss = loss.mean()
+        loss = value_loss * self.args['value_loss_weight'] + policy_loss #+ reward_loss
+        loss = loss.mean()
     
-        # self.optimizer.zero_grad()
-        # loss.backward()
-        # self.optimizer.step()
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
 
-        random.shuffle(self.replayBuffer.buffer)
-        for batchIdx in range(0, len(self.replayBuffer.buffer) -1, self.args['batch_size']):
-            state, _, policy, value, _, _ = list(zip(*self.replayBuffer.buffer[batchIdx:min(len(self.replayBuffer.buffer) -1, batchIdx + self.args['batch_size'])]))
+        # random.shuffle(self.replayBuffer.buffer)
+        # for batchIdx in range(0, len(self.replayBuffer.buffer) -1, self.args['batch_size']):
+        #     state, _, policy, value, _, _ = list(zip(*self.replayBuffer.buffer[batchIdx:min(len(self.replayBuffer.buffer) -1, batchIdx + self.args['batch_size'])]))
 
-            state = torch.vstack(state).to(self.device)
-            policy = torch.vstack(policy).to(self.device)
-            value = torch.tensor(value, dtype=torch.float32).to(self.device).reshape(-1, 1)
+        #     state = torch.vstack(state).to(self.device)
+        #     policy = torch.vstack(policy).to(self.device)
+        #     value = torch.tensor(value, dtype=torch.float32).to(self.device).reshape(-1, 1)
 
-            out_policy, out_value = self.muZero.predict(state)
-            loss_policy = F.cross_entropy(out_policy, policy) 
-            loss_value = F.mse_loss(out_value, value)
-            loss = loss_policy + loss_value
+        #     out_policy, out_value = self.muZero.predict(state)
+        #     loss_policy = F.cross_entropy(out_policy, policy) 
+        #     loss_value = F.mse_loss(out_value, value)
+        #     loss = loss_policy + loss_value
 
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+        #     self.optimizer.zero_grad()
+        #     loss.backward()
+        #     self.optimizer.step()
 
     def run(self):
         for iteration in range(self.args['num_iterations']):

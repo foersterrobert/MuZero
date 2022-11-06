@@ -14,7 +14,8 @@ class TicTacToe:
         observation = torch.zeros((self.row_count, self.column_count), dtype=torch.int8, device=self.device)
         valid_locations = self.get_valid_locations(observation)
         reward = 0
-        return observation, valid_locations, reward
+        terminal = False
+        return observation, valid_locations, reward, terminal
 
     def is_position_a_winner(self, observation, action):
         if action is None:
@@ -25,10 +26,10 @@ class TicTacToe:
         mark = observation[row][column]
         
         return (
-            sum(observation[row]) == mark * self.column_count # row
-            or sum(observation[:, column]) == mark * self.row_count # column 
-            or sum(torch.diag(observation)) == mark * self.row_count # diagonal 
-            or sum(torch.diag(torch.fliplr(observation))) == mark * self.row_count # flipped diagonal
+            torch.sum(observation[row]) == mark * self.column_count # row
+            or torch.sum(observation[:, column]) == mark * self.row_count # column 
+            or torch.sum(torch.diag(observation)) == mark * self.row_count # diagonal 
+            or torch.sum(torch.diag(torch.fliplr(observation))) == mark * self.row_count # flipped diagonal
         )
 
     def step(self, observation, action, player):
@@ -43,7 +44,7 @@ class TicTacToe:
         return (observation.reshape(-1) == 0).int()
 
     def get_canonical_state(self, hidden_state, player):
-        return hidden_state if player == 1 else hidden_state.flip(2)
+        return hidden_state if player == 1 else hidden_state.flip(1)
 
     def get_encoded_observation(self, observation):
         encoded_observation = torch.vstack((
