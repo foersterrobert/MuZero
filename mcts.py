@@ -58,7 +58,8 @@ class Node:
         return best_child
 
     def get_ucb_score(self, child):
-        prior_score = child.prior * math.sqrt(self.visit_count) / (1 + child.visit_count) * (self.args['c1'] + math.log((self.visit_count + self.args['c2'] + 1) / self.args['c2']))
+        # prior_score = child.prior * math.sqrt(self.visit_count) / (1 + child.visit_count) * (self.args['c1'] + math.log((self.visit_count + self.args['c2'] + 1) / self.args['c2']))
+        prior_score = 2 * child.prior * math.sqrt(self.visit_count) / (1 + child.visit_count)
         if child.visit_count == 0:
             return prior_score
         return prior_score - (child.total_value / child.visit_count)
@@ -75,9 +76,10 @@ class MCTS:
         root = Node(hidden_state, reward, player, 0, self.muZero, self.args, self.game)
 
         action_probs, value = self.muZero.predict(hidden_state)
+        action_probs = torch.softmax(action_probs, dim=1).squeeze(0)
         value = value.item()
 
-        action_probs = action_probs[0] * available_actions
+        action_probs = action_probs * available_actions
         action_probs = action_probs / torch.sum(action_probs)
 
         root.expand(action_probs)
