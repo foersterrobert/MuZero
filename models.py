@@ -17,10 +17,11 @@ class MuZero(nn.Module):
         return observation
         # return self.representationFunction(observation)
 
-    def dynamics(self, hidden_state, action):
+    def dynamics(self, hidden_state, action, player):
         row = action // 3
         col = action % 3
-        hidden_state[0, 2, row, col] = 1
+        dim = 2 if player == 1 else 0
+        hidden_state[0, dim, row, col] = 1
         return hidden_state, 0
         # action = torch.zeros((1, 1, 3, 3)).to(self.device)
         # action[0, 0, row, col] = 1

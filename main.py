@@ -34,10 +34,10 @@ if __name__ == '__main__':
     # }
     args = {
         'num_iterations': 20,             # number of highest level iterations
-        'num_train_games': 100,           # number of self-play games to play within each iteration
-        'num_simulation_games': 50,       # number of mcts simulations when selecting a move within self-play
-        'num_training_steps': 8,          # number of epochs for training on self-play data for each iteration
-        'batch_size': 128,                # batch size for training
+        'num_train_games': 500,           # number of self-play games to play within each iteration
+        'num_simulation_games': 60,       # number of mcts simulations when selecting a move within self-play
+        'num_training_steps': 4,     # 200  # number of epochs for training on self-play data for each iteration
+        'batch_size': 64,                 # batch size for training
         'temperature': 1,                 # temperature for the softmax selection of moves
         'K': 3,                           # unroll K steps of the dynamics function when training
         'c1': 1.25,                       # the value of the constant policy
@@ -46,11 +46,11 @@ if __name__ == '__main__':
         'discount': 0.997,
         'value_loss_weight': 0.25,
         'dynamicsFunction': {
-            'num_resBlocks': 5,
+            'num_resBlocks': 4,
             'hidden_planes': 128
         },
         'predictionFunction': {
-            'num_resBlocks': 5,
+            'num_resBlocks': 4,
             'hidden_planes': 128
         },
         'representationFunction': {

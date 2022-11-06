@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
+import random
 from tqdm import trange
 from mcts import MCTS
 from replaybuffer import ReplayBuffer
@@ -55,37 +56,54 @@ class Trainer:
             player = self.game.get_opponent_player(player)
 
     def train(self):
-        policy_loss = 0
-        value_loss = 0
-        # reward_loss = 0
+        # policy_loss = 0
+        # value_loss = 0
+        # # reward_loss = 0
 
-        batch = self.replayBuffer.sample(self.args['batch_size'])
-        for observation, actions, action_probs, values, rewards in batch:
-            values = torch.tensor(values, dtype=torch.float).to(self.device).reshape(-1, 1)
-            rewards = torch.tensor(rewards, dtype=torch.float).to(self.device).reshape(-1, 1)
+        # batch = self.replayBuffer.sample(self.args['batch_size'])
+        # for observation, actions, action_probs, values, rewards in batch:
+        #     values = torch.tensor(values, dtype=torch.float).to(self.device).reshape(-1, 1)
+        #     rewards = torch.tensor(rewards, dtype=torch.float).to(self.device).reshape(-1, 1)
 
-            hidden_state = self.muZero.represent(observation)
-            predicted_action_probs, predicted_value = self.muZero.predict(hidden_state)
+        #     hidden_state = self.muZero.represent(observation)
+        #     predicted_action_probs, predicted_value = self.muZero.predict(hidden_state)
 
-            policy_loss += F.cross_entropy(predicted_action_probs, action_probs[0].unsqueeze(0))
-            value_loss += F.mse_loss(predicted_value[0], values[0])
+        #     policy_loss += F.cross_entropy(predicted_action_probs, action_probs[0].unsqueeze(0))
+        #     value_loss += F.mse_loss(predicted_value[0], values[0])
 
-            for k in range(1, self.args['K'] + 1):
-                hidden_state, predicted_reward = self.muZero.dynamics(hidden_state.clone(), actions[k - 1])
-                hidden_state = self.game.get_canonical_state(hidden_state, -1)
-                predicted_action_probs, predicted_value = self.muZero.predict(hidden_state)
+        #     for k in range(1, self.args['K'] + 1):
+        #         hidden_state, predicted_reward = self.muZero.dynamics(hidden_state.clone(), actions[k - 1], player=1)
+        #         hidden_state = self.game.get_canonical_state(hidden_state, -1)
+        #         predicted_action_probs, predicted_value = self.muZero.predict(hidden_state)
 
-                policy_loss += F.cross_entropy(predicted_action_probs, action_probs[k].unsqueeze(0))
-                value_loss += F.mse_loss(predicted_value[0], values[k])
-                # reward_loss += F.mse_loss(predicted_reward[0], rewards[k])
+        #         policy_loss += F.cross_entropy(predicted_action_probs, action_probs[k].unsqueeze(0))
+        #         value_loss += F.mse_loss(predicted_value[0], values[k])
+        #         # reward_loss += F.mse_loss(predicted_reward[0], rewards[k])
 
-        loss = value_loss * self.args['value_loss_weight'] + policy_loss #+ reward_loss
-        loss = loss.mean()
+        # loss = value_loss * self.args['value_loss_weight'] + policy_loss #+ reward_loss
+        # loss = loss.mean()
     
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
-        
+        # self.optimizer.zero_grad()
+        # loss.backward()
+        # self.optimizer.step()
+
+        random.shuffle(self.replayBuffer.buffer)
+        for batchIdx in range(0, len(self.replayBuffer.buffer) -1, self.args['batch_size']):
+            state, _, policy, value, _, _ = list(zip(*self.replayBuffer.buffer[batchIdx:min(len(self.replayBuffer.buffer) -1, batchIdx + self.args['batch_size'])]))
+
+            state = torch.vstack(state).to(self.device)
+            policy = torch.vstack(policy).to(self.device)
+            value = torch.tensor(value, dtype=torch.float32).to(self.device).reshape(-1, 1)
+
+            out_policy, out_value = self.muZero.predict(state)
+            loss_policy = F.cross_entropy(out_policy, policy) 
+            loss_value = F.mse_loss(out_value, value)
+            loss = loss_policy + loss_value
+
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
     def run(self):
         for iteration in range(self.args['num_iterations']):
             print(f"iteration: {iteration}")
