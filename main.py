@@ -14,6 +14,8 @@ torch.manual_seed(0)
 random.seed(0)
 np.random.seed(0)
 
+LOAD = False
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 if __name__ == '__main__':
@@ -59,6 +61,10 @@ if __name__ == '__main__':
     game = TicTacToe()
     muZero = MuZero(game, args).to(device)
     optimizer = Adam(muZero.parameters(), lr=0.001, weight_decay=0.0001)
+    
+    if LOAD:
+        muZero.load_state_dict(torch.load(f'Models/{game}/model_19.pt'))
+        optimizer.load_state_dict(torch.load(f'Models/{game}/optimizer_19.pt'))
 
     trainer = Trainer(muZero, optimizer, game, args)
     trainer.run()
