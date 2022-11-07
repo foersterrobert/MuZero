@@ -21,7 +21,8 @@ np.random.seed(0)
 
 LOAD = False
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")#"cuda" if torch.cuda.is_available() else "cpu")
+print(device)
 
 if __name__ == '__main__':
     # args = {
@@ -41,10 +42,11 @@ if __name__ == '__main__':
         'num_iterations': 20,             # number of highest level iterations
         'num_train_games': 500,           # number of self-play games to play within each iteration
         'num_simulation_games': 60,       # number of mcts simulations when selecting a move within self-play
-        'num_training_steps': 50,         # number of epochs for training on self-play data for each iteration
-        'batch_size': 256,                # batch size for training
+        'num_epochs': 4,                  # number of epochs for training on self-play data for each iteration
+        'batch_size': 32,                 # batch size for training
         'temperature': 1,                 # temperature for the softmax selection of moves
         'K': 3,                           # unroll K steps of the dynamics function when training
+        'c': 2,                           # the value of the constant policy
         'c1': 1.25,                       # the value of the constant policy
         'c2': 19652,                      # the value of the constant policy
         'n': 10,                          # steps to unroll for reward prediction

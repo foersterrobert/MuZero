@@ -6,7 +6,7 @@ class MuZero(nn.Module):
     def __init__(self, game, args):
         super().__init__()
         self.game = game
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cpu")#"cuda" if torch.cuda.is_available() else "cpu")
         # self.dynamicsFunction = DynamicsFunction(**args['dynamicsFunction'])
         self.predictionFunction = PredictionFunction(self.game, **args['predictionFunction'])
         # self.representationFunction = RepresentationFunction(**args['representationFunction'])

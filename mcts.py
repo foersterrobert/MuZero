@@ -61,7 +61,7 @@ class Node:
 
     def get_ucb_score(self, child):
         # prior_score = child.prior * math.sqrt(self.visit_count) / (1 + child.visit_count) * (self.args['c1'] + math.log((self.visit_count + self.args['c2'] + 1) / self.args['c2']))
-        prior_score = 2 * child.prior * math.sqrt(self.visit_count) / (1 + child.visit_count)
+        prior_score = self.args['c'] * child.prior * math.sqrt(self.visit_count) / (1 + child.visit_count)
         if child.visit_count == 0:
             return prior_score
         return prior_score - (child.total_value / child.visit_count)

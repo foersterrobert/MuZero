@@ -5,7 +5,7 @@ class TicTacToe:
         self.row_count = 3
         self.column_count = 3
         self.action_size = 9
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cpu")#"cuda" if torch.cuda.is_available() else "cpu")
 
     def __repr__(self):
         return 'TicTacToe'
