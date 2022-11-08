@@ -81,8 +81,8 @@ class MCTS:
         action_probs = torch.softmax(action_probs, dim=1).squeeze(0)
         value = value.item()
 
-        action_probs = action_probs * available_actions
-        action_probs = action_probs / torch.sum(action_probs)
+        action_probs *= available_actions
+        action_probs /= torch.sum(action_probs)
 
         root.expand(action_probs)
 
