@@ -13,29 +13,35 @@ class Trainer:
         self.game = game
         self.args = args
         self.replayBuffer = ReplayBuffer(self.args, self.game)
-        self.device = torch.device("cpu")#"cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    def self_play(self, game_idx_group, group_size=10):
+    @torch.no_grad()
+    def self_play(self, game_idx_group, group_size=100):
         self_play_games = [SelfPlayGame(self.game, game_idx_group * group_size + i) for i in range(group_size)]
         self_play_memory = []
 
         while len(self_play_games) > 0:
             del_list = []
 
-            for self_play_game in self_play_games:
-                encoded_observation = self.game.get_encoded_observation(self_play_game.observation)
-                canonical_observation = self.game.get_canonical_state(encoded_observation, self_play_game.player)
-                hidden_state = self.muZero.represent(canonical_observation) # batch
-                self_play_game.root = Node(hidden_state, self_play_game.reward, self_play_game.player, 0, self.muZero, self.args, self.game)
+            observations = torch.vstack([self_play_game.observation for self_play_game in self_play_games])
+            encoded_observations = self.game.get_encoded_observation(observations, parallel=True)
 
-                action_probs, value = self.muZero.predict(hidden_state)
-                action_probs = torch.softmax(action_probs, dim=1).squeeze(0)
-                value = value.item()
+            canonical_observations = self.game.get_canonical_state(encoded_observations, self_play_games[0].player)
+            hidden_state = canonical_observations # self.muZero.represent(canonical_observations) 
 
-                action_probs *= self_play_game.available_actions
-                action_probs /= torch.sum(action_probs)
+            action_probs, value = self.muZero.predict(hidden_state)
+            action_probs = torch.softmax(action_probs, dim=1)
 
-                self_play_game.root.expand(action_probs)
+            for i, self_play_game in enumerate(self_play_games):
+                self_play_game.root = Node(
+                    hidden_state[i],
+                    self_play_game.reward,
+                    1, 0, self.muZero, self.args, self.game
+                )
+                self_play_game_action_probs = action_probs[i].cpu().numpy()
+                self_play_game_action_probs *= self_play_game.valid_locations.cpu().numpy()
+                self_play_game_action_probs /= np.sum(self_play_game_action_probs)
+                self_play_game.root.expand(self_play_game_action_probs)
 
             for simulation in range(self.args['num_simulation_games']):
                 for self_play_game in self_play_games:
@@ -44,13 +50,16 @@ class Trainer:
                     while node.is_expandable():
                         node = node.select_child()
 
-                    canonical_hidden_state = self.game.get_canonical_state(node.state, node.player)
-                    action_probs, value = self.muZero.predict(canonical_hidden_state)
-                    action_probs = torch.softmax(action_probs, dim=1).squeeze(0)
-                    value = value.item()
+                    self_play_game.node = node
 
-                    node.expand(action_probs)
-                    node.backpropagate(value)
+                hidden_states = torch.vstack([self_play_game.node.state for self_play_game in self_play_games])
+                canonical_hidden_states = self.game.get_canonical_state(hidden_states, self_play_games[0].node.player)
+                action_probs, value = self.muZero.predict(canonical_hidden_states)
+                action_probs = torch.softmax(action_probs, dim=1)
+
+                for i, self_play_game in enumerate(self_play_games):
+                    self_play_game.node.expand(action_probs[i].cpu().numpy())
+                    self_play_game.node.backpropagate(value[i].item())
 
             for self_play_game in self_play_games:
                 action_probs = torch.zeros(self.game.action_size)
@@ -139,7 +148,7 @@ class Trainer:
 
             self.muZero.eval()
             for train_game_idx in trange(self.args['num_train_games'], desc="train_game"):
-                game_memory = self.self_play(train_game_idx + iteration * self.args['num_train_games'])
+                game_memory = self.self_play(train_game_idx + iteration * self.args['num_train_games'], group_size=100)
                 self.replayBuffer.add(game_memory)
             self.replayBuffer.build_trajectories()
 

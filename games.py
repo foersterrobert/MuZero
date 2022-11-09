@@ -5,7 +5,7 @@ class TicTacToe:
         self.row_count = 3
         self.column_count = 3
         self.action_size = 9
-        self.device = torch.device("cpu")#"cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def __repr__(self):
         return 'TicTacToe'
@@ -46,12 +46,19 @@ class TicTacToe:
     def get_canonical_state(self, hidden_state, player):
         return hidden_state if player == 1 else hidden_state.flip(1)
 
-    def get_encoded_observation(self, observation):
-        encoded_observation = torch.vstack((
-            (observation == -1).reshape(1, self.row_count, self.column_count),
-            (observation == 0).reshape(1, self.row_count, self.column_count),
-            (observation == 1).reshape(1, self.row_count, self.column_count)
-        )).float().unsqueeze(0)
+    def get_encoded_observation(self, observation, parallel=False):
+        if parallel:
+            encoded_observation = torch.swapaxes(torch.stack(
+                ((observation == -1), (observation == 0), (observation == 1))).float(), 0, 1
+            )
+
+        else:
+            encoded_observation = torch.vstack((
+                (observation == -1).reshape(1, self.row_count, self.column_count),
+                (observation == 0).reshape(1, self.row_count, self.column_count),
+                (observation == 1).reshape(1, self.row_count, self.column_count)
+            )).float().unsqueeze(0)
+
         return encoded_observation
 
     def check_terminal_and_value(self, observation, action):

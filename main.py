@@ -4,16 +4,13 @@ import numpy as np
 import random
 from games import TicTacToe
 from models import MuZero
-from trainer import Trainer
+from trainerParallel import Trainer
 
 # Don't understand: backpropagation + training
 # In training: scale hidden state ([0, 1])
 # In training: scale loss 1/k
 
-# add terminal state to replay buffer
-# add absorbing states to training
-
-# check winner func
+# debug parallel training
 
 torch.manual_seed(0)
 random.seed(0)
@@ -21,7 +18,7 @@ np.random.seed(0)
 
 LOAD = False
 
-device = torch.device("cpu")#"cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
 if __name__ == '__main__':
@@ -40,7 +37,7 @@ if __name__ == '__main__':
     # }
     args = {
         'num_iterations': 20,             # number of highest level iterations
-        'num_train_games': 500,           # number of self-play games to play within each iteration
+        'num_train_games': 5,             # number of self-play games to play within each iteration
         'num_simulation_games': 60,       # number of mcts simulations when selecting a move within self-play
         'num_epochs': 4,                  # number of epochs for training on self-play data for each iteration
         'batch_size': 32,                 # batch size for training

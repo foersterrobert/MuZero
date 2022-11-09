@@ -14,7 +14,7 @@ class Trainer:
         self.args = args
         self.mcts = MCTS(self.muZero, self.game, self.args)
         self.replayBuffer = ReplayBuffer(self.args, self.game)
-        self.device = torch.device("cpu")#"cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def self_play(self, game_idx):
         game_memory = []
