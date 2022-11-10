@@ -71,7 +71,7 @@ class Trainer:
             value_loss = 0
             # reward_loss = 0
 
-            state, action, policy, value, reward = list(zip(*self.replayBuffer.buffer[batchIdx:min(len(self.replayBuffer.buffer) -1, batchIdx + self.args['batch_size'])]))
+            state, action, policy, value, reward = list(zip(*self.replayBuffer.trajectories[batchIdx:min(len(self.replayBuffer) -1, batchIdx + self.args['batch_size'])]))
             state = torch.vstack(state).to(self.device)
             policy = torch.vstack(policy).to(self.device)
             value = torch.tensor(value, dtype=torch.float32).to(self.device).reshape(-1, 1)
