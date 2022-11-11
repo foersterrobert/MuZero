@@ -86,7 +86,7 @@ class MCTS:
 
         root.expand(action_probs)
 
-        for simulation in range(self.args['num_simulation_games']):
+        for simulation in range(self.args['num_mcts_runs']):
             node = root
 
             while node.is_expandable():

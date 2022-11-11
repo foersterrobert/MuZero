@@ -44,7 +44,7 @@ class Trainer:
                 self_play_game_action_probs /= np.sum(self_play_game_action_probs)
                 self_play_game.root.expand(self_play_game_action_probs)
 
-            for simulation in range(self.args['num_simulation_games']):
+            for simulation in range(self.args['num_mcts_runs']):
                 for self_play_game in self_play_games:
                     node = self_play_game.root
 
@@ -147,8 +147,8 @@ class Trainer:
             self.replayBuffer.empty()
 
             self.muZero.eval()
-            for train_game_idx in trange(2, desc="train_game"):
-                game_memory = self.self_play(train_game_idx + iteration * 2, group_size=256)
+            for train_game_idx in trange(self.args['num_train_games'] // self.args['group_size'], desc="train_game"):
+                game_memory = self.self_play(train_game_idx + iteration * self.args['num_train_games'] // self.args['group_size'], group_size=self.args['group_size'])
                 self.replayBuffer.add(game_memory)
             self.replayBuffer.build_trajectories()
 

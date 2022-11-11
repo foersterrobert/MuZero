@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 class ReplayBuffer:
     def __init__(self, args, game):
@@ -26,18 +27,21 @@ class ReplayBuffer:
 
             for k in range(1, self.args['K'] + 1):
                 if i + k < len(self.memory) and self.memory[i + k][5] == game_idx:
-                    _, next_action, next_policy, next_value, next_reward, _, next_terminal = self.memory[i + k]
-                    if next_terminal:
-                        next_action = np.random.choice(self.game.action_size)
-                    action_list.append(next_action)
-                    policy_list.append(next_policy)
-                    value_list.append(next_value)
-                    reward_list.append(next_reward)
+                    _, action, policy, value, reward, _, is_terminal = self.memory[i + k]
+                    if is_terminal:
+                        action = np.random.choice(self.game.action_size)
+                    action_list.append(action)
+                    policy_list.append(policy)
+                    value_list.append(value)
+                    reward_list.append(reward)
 
                 else:
                     action_list.append(np.random.choice(self.game.action_size))
                     policy_list.append(policy_list[-1])
                     value_list.append(-1 * value_list[-1])
                     reward_list.append(-1 * reward_list[-1])
+
+            policy_list = torch.vstack(policy_list)
+            value_list = torch.tensor(value_list)
 
             self.trajectories.append((observation, action_list, policy_list, value_list, reward_list))
