@@ -18,22 +18,29 @@ class MuZero(nn.Module):
         return observation
         # return self.representationFunction(observation)
 
-    def dynamics(self, hidden_state, action):
-        row = action // 3
-        col = action % 3
-        if (torch.sum(hidden_state[0, 1]) != 0 
-            and max(torch.sum(hidden_state[0, 0], dim=0)) < 3 
-            and max(torch.sum(hidden_state[0, 0], dim=1)) < 3
-            and sum(torch.diag(hidden_state[0, 0])) < 3
-            and sum(torch.diag(torch.fliplr(hidden_state[0, 0]))) < 3
-            and max(torch.sum(hidden_state[0, 2], dim=0)) < 3
-            and max(torch.sum(hidden_state[0, 2], dim=1)) < 3
-            and sum(torch.diag(hidden_state[0, 2])) < 3
-            and sum(torch.diag(torch.fliplr(hidden_state[0, 2]))) < 3
-            and hidden_state[0, 1, row, col] == 1
-        ):
-            hidden_state[0, 1, row, col] = 0
-            hidden_state[0, 2, row, col] = 1
+    def dynamics(self, hidden_state, action, parallel=False):
+        if parallel:
+            hidden_state = hidden_state.unsqueeze(1)
+            for i in range(hidden_state.shape[0]):
+                hidden_state[i], _ = self.dynamics(hidden_state[i], action[i])
+            hidden_state = hidden_state.squeeze(1)
+
+        else:
+            row = action // 3
+            col = action % 3
+            if (torch.sum(hidden_state[0, 1]) != 0 
+                and max(torch.sum(hidden_state[0, 0], dim=0)) < 3 
+                and max(torch.sum(hidden_state[0, 0], dim=1)) < 3
+                and sum(torch.diag(hidden_state[0, 0])) < 3
+                and sum(torch.diag(torch.fliplr(hidden_state[0, 0]))) < 3
+                and max(torch.sum(hidden_state[0, 2], dim=0)) < 3
+                and max(torch.sum(hidden_state[0, 2], dim=1)) < 3
+                and sum(torch.diag(hidden_state[0, 2])) < 3
+                and sum(torch.diag(torch.fliplr(hidden_state[0, 2]))) < 3
+                and hidden_state[0, 1, row, col] == 1
+            ):
+                hidden_state[0, 1, row, col] = 0
+                hidden_state[0, 2, row, col] = 1
         return hidden_state, 0
         # action = torch.zeros((1, 1, 3, 3)).to(self.device)
         # action[0, 0, row, col] = 1

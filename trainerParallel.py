@@ -116,17 +116,18 @@ class Trainer:
 
             state, action, policy, value, reward = list(zip(*self.replayBuffer.trajectories[batchIdx:min(len(self.replayBuffer) -1, batchIdx + self.args['batch_size'])]))
             state = torch.vstack(state).to(self.device)
-            policy = torch.vstack(policy).to(self.device)
-            value = torch.tensor(value, dtype=torch.float32).to(self.device).reshape(-1, 1)
+            policy = torch.stack(policy).swapaxes(0, 1).to(self.device)
+            value = torch.stack(value).swapaxes(0, 1).unsqueeze(2).to(self.device)
+            action = np.stack(action).swapaxes(0, 1)
 
             hidden_state = self.muZero.represent(state)
             out_policy, out_value = self.muZero.predict(hidden_state)
 
-            policy_loss += F.cross_entropy(out_policy, policy) 
-            value_loss += F.mse_loss(out_value, value)
+            policy_loss += F.cross_entropy(out_policy, policy[0]) 
+            value_loss += F.mse_loss(out_value, value[0])
 
             for k in range(1, self.args['K'] + 1):
-                hidden_state, out_reward = self.muZero.dynamics(hidden_state.clone(), action[k - 1])
+                hidden_state, out_reward = self.muZero.dynamics(hidden_state.clone(), action[k - 1], parallel=True)
                 hidden_state = self.game.get_canonical_state(hidden_state, -1)
                 out_policy, out_value = self.muZero.predict(hidden_state)
 
