@@ -41,8 +41,5 @@ class ReplayBuffer:
                     value_list.append(-1 * value_list[-1])
                     reward_list.append(-1 * reward_list[-1])
 
-            policy_list = torch.vstack(policy_list)
-            value_list = torch.tensor(value_list)
-            action_list = np.array(action_list)
-
+            policy_list = np.stack(policy_list)
             self.trajectories.append((observation, action_list, policy_list, value_list, reward_list))

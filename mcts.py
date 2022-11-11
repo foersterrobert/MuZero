@@ -21,7 +21,7 @@ class Node:
     def expand(self, action_probs):
         for a, prob in enumerate(action_probs):
             if prob != 0:
-                child_state = self.state.detach().clone()
+                child_state = self.state.copy()
                 child_state = self.game.get_canonical_state(child_state, self.player)
                 child_state, reward = self.muZero.dynamics(child_state, a)
                 child_state = self.game.get_canonical_state(child_state, self.player)

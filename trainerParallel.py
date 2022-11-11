@@ -24,23 +24,23 @@ class Trainer:
         while len(self_play_games) > 0:
             del_list = []
 
-            observations = torch.stack([self_play_game.observation for self_play_game in self_play_games])
+            observations = np.stack([self_play_game.observation for self_play_game in self_play_games])
             encoded_observations = self.game.get_encoded_observation(observations, parallel=True)
-
-            canonical_observations = self.game.get_canonical_state(encoded_observations, player)
-            hidden_state = canonical_observations # self.muZero.represent(canonical_observations) 
+            canonical_observations = self.game.get_canonical_state(encoded_observations, player).copy()
+            hidden_state = torch.tensor(canonical_observations, dtype=torch.float32, device=self.device) # self.muZero.represent(canonical_observations) 
 
             action_probs, value = self.muZero.predict(hidden_state)
             action_probs = torch.softmax(action_probs, dim=1).cpu().numpy()
+            hidden_state = hidden_state.cpu().numpy()
 
             for i, self_play_game in enumerate(self_play_games):
                 self_play_game.root = Node(
-                    hidden_state[i].unsqueeze(0),
+                    hidden_state[i],
                     self_play_game.reward,
                     1, 0, self.muZero, self.args, self.game
                 )
                 self_play_game_action_probs = action_probs[i]
-                self_play_game_action_probs *= self_play_game.valid_locations.cpu().numpy()
+                self_play_game_action_probs *= self_play_game.valid_locations
                 self_play_game_action_probs /= np.sum(self_play_game_action_probs)
                 self_play_game.root.expand(self_play_game_action_probs)
 
@@ -53,30 +53,32 @@ class Trainer:
 
                     self_play_game.node = node
 
-                hidden_states = torch.vstack([self_play_game.node.state for self_play_game in self_play_games])
-                canonical_hidden_states = self.game.get_canonical_state(hidden_states, self_play_games[0].node.player)
+                hidden_states = np.stack([self_play_game.node.state for self_play_game in self_play_games])
+                canonical_hidden_states = self.game.get_canonical_state(hidden_states, self_play_games[0].node.player).copy()
+                canonical_hidden_states = torch.tensor(canonical_hidden_states, dtype=torch.float32, device=self.device)
                 action_probs, value = self.muZero.predict(canonical_hidden_states)
                 action_probs = torch.softmax(action_probs, dim=1).cpu().numpy()
+                value = value.cpu().numpy().squeeze(1)
 
                 for i, self_play_game in enumerate(self_play_games):
                     self_play_game.node.expand(action_probs[i])
-                    self_play_game.node.backpropagate(value[i].item())
+                    self_play_game.node.backpropagate(value[i])
 
             for self_play_game in self_play_games:
-                action_probs = torch.zeros(self.game.action_size)
+                action_probs = np.zeros(self.game.action_size, dtype=np.float32)
                 for child in self_play_game.root.children:
                     action_probs[child.action_taken] = child.visit_count
-                action_probs /= torch.sum(action_probs)
+                action_probs /= np.sum(action_probs)
 
                 # sample action from the mcts policy | based on temperature
                 if self.args['temperature'] == 0:
-                    action = torch.argmax(action_probs).item()
+                    action = np.argmax(action_probs)
                 elif self.args['temperature'] == float('inf'):
                     action = np.random.choice([r for r in range(self.game.action_size) if action_probs[r] > 0])
                 else:
                     temperature_action_probs = action_probs ** (1 / self.args['temperature'])
-                    temperature_action_probs /= torch.sum(temperature_action_probs)
-                    action = np.random.choice(len(temperature_action_probs), p=temperature_action_probs.detach().numpy())
+                    temperature_action_probs /= np.sum(temperature_action_probs)
+                    action = np.random.choice(len(temperature_action_probs), p=temperature_action_probs)
 
                 self_play_game.game_memory.append((self_play_game.root.state, action, player, action_probs, self_play_game.reward, self_play_game.is_terminal))
 
@@ -91,7 +93,7 @@ class Trainer:
                     return_memory.append((
                         self.game.get_canonical_state(self.game.get_encoded_observation(self_play_game.observation), self.game.get_opponent_player(player)),
                         0,
-                        torch.zeros(self.game.action_size),
+                        np.zeros(self.game.action_size),
                         -1 * self_play_game.reward,
                         0,
                         self_play_game.game_idx,
@@ -115,10 +117,10 @@ class Trainer:
             # reward_loss = 0
 
             state, action, policy, value, reward = list(zip(*self.replayBuffer.trajectories[batchIdx:min(len(self.replayBuffer) -1, batchIdx + self.args['batch_size'])]))
-            state = torch.vstack(state).to(self.device)
-            policy = torch.stack(policy).swapaxes(0, 1).to(self.device)
-            value = torch.stack(value).swapaxes(0, 1).unsqueeze(2).to(self.device)
-            action = np.stack(action).swapaxes(0, 1)
+            state = torch.tensor(np.stack(state), dtype=torch.float32, device=self.device)
+            policy = torch.tensor(np.stack(policy).swapaxes(0, 1), device=self.device)
+            value = torch.tensor(np.array(value).swapaxes(0, 1).reshape(self.args['K'] + 1, -1, 1), dtype=torch.float32, device=self.device)
+            action = np.array(action).swapaxes(0, 1)
 
             hidden_state = self.muZero.represent(state)
             out_policy, out_value = self.muZero.predict(hidden_state)
@@ -127,8 +129,9 @@ class Trainer:
             value_loss += F.mse_loss(out_value, value[0])
 
             for k in range(1, self.args['K'] + 1):
-                hidden_state, out_reward = self.muZero.dynamics(hidden_state.clone(), action[k - 1], parallel=True)
-                hidden_state = self.game.get_canonical_state(hidden_state, -1)
+                hidden_state, out_reward = self.muZero.dynamics(hidden_state.clone().cpu().numpy(), action[k - 1], parallel=True)
+                hidden_state = self.game.get_canonical_state(hidden_state, -1).copy()
+                hidden_state = torch.tensor(hidden_state, dtype=torch.float32, device=self.device)
                 out_policy, out_value = self.muZero.predict(hidden_state)
 
                 policy_loss += F.cross_entropy(out_policy, policy[k])

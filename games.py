@@ -1,17 +1,16 @@
-import torch
+import numpy as np
 
 class TicTacToe:
     def __init__(self):
         self.row_count = 3
         self.column_count = 3
         self.action_size = 9
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def __repr__(self):
         return 'TicTacToe'
 
     def get_initial_state(self):
-        observation = torch.zeros((self.row_count, self.column_count), dtype=torch.int8, device=self.device)
+        observation = np.zeros((self.row_count, self.column_count), dtype=np.int8)
         valid_locations = self.get_valid_locations(observation)
         reward = 0
         terminal = False
@@ -26,10 +25,10 @@ class TicTacToe:
         mark = observation[row][column]
         
         return (
-            torch.sum(observation[row]) == mark * self.column_count # row
-            or torch.sum(observation[:, column]) == mark * self.row_count # column 
-            or torch.sum(torch.diag(observation)) == mark * self.row_count # diagonal 
-            or torch.sum(torch.diag(torch.fliplr(observation))) == mark * self.row_count # flipped diagonal
+            np.sum(observation[row]) == mark * self.column_count # row
+            or np.sum(observation[:, column]) == mark * self.row_count # column 
+            or np.sum(np.diag(observation)) == mark * self.row_count # diagonal 
+            or np.sum(np.diag(np.fliplr(observation))) == mark * self.row_count # flipped diagonal
         )
 
     def step(self, observation, action, player):
@@ -41,23 +40,23 @@ class TicTacToe:
         return observation, valid_locations, reward, is_terminal
 
     def get_valid_locations(self, observation):
-        return (observation.reshape(-1) == 0).int()
+        return (observation.reshape(-1) == 0)
 
     def get_canonical_state(self, hidden_state, player):
-        return hidden_state if player == 1 else hidden_state.flip(1)
+        return hidden_state if player == 1 else np.flipud(hidden_state)
 
     def get_encoded_observation(self, observation, parallel=False):
         if parallel:
-            encoded_observation = torch.swapaxes(torch.stack(
-                ((observation == -1), (observation == 0), (observation == 1))).float(), 0, 1
+            encoded_observation = np.swapaxes(np.stack(
+                ((observation == -1), (observation == 0), (observation == 1))), 0, 1
             )
 
         else:
-            encoded_observation = torch.vstack((
-                (observation == -1).reshape(1, self.row_count, self.column_count),
-                (observation == 0).reshape(1, self.row_count, self.column_count),
-                (observation == 1).reshape(1, self.row_count, self.column_count)
-            )).float().unsqueeze(0)
+            encoded_observation = np.stack((
+                (observation == -1),
+                (observation == 0),
+                (observation == 1)
+            ))
 
         return encoded_observation
 
