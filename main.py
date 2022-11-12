@@ -6,11 +6,9 @@ from games import TicTacToe
 from models import MuZero
 from trainerParallel import Trainer
 
-# Don't understand: backpropagation + training
 # In training: scale hidden state ([0, 1])
 # In training: scale loss 1/k
-
-# debug parallel training
+# change ucb in mcts
 
 torch.manual_seed(0)
 random.seed(0)
@@ -43,7 +41,7 @@ if __name__ == '__main__':
         'num_epochs': 4,                  # number of epochs for training on self-play data for each iteration
         'batch_size': 32,                 # batch size for training
         'temperature': 1,                 # temperature for the softmax selection of moves
-        'K': 3,                           # unroll K steps of the dynamics function when training
+        'K': 1,                           # unroll K steps of the dynamics function when training
         'c': 2,                           # the value of the constant policy
         'c1': 1.25,                       # the value of the constant policy
         'c2': 19652,                      # the value of the constant policy
@@ -68,8 +66,8 @@ if __name__ == '__main__':
     optimizer = Adam(muZero.parameters(), lr=0.001, weight_decay=0.0001)
     
     if LOAD:
-        muZero.load_state_dict(torch.load(f'Models/{game}/model_19.pt'))
-        optimizer.load_state_dict(torch.load(f'Models/{game}/optimizer_19.pt'))
+        muZero.load_state_dict(torch.load(f'Models/{game}/model_8.pt'))
+        optimizer.load_state_dict(torch.load(f'Models/{game}/optimizer_8.pt'))
 
     trainer = Trainer(muZero, optimizer, game, args)
     trainer.run()

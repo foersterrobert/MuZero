@@ -19,6 +19,8 @@ class Node:
 
     @torch.no_grad()
     def expand(self, action_probs):
+        # n = len([r for r in action_probs if r > 0])
+        # child_state = self.state.copy().reshape(1, 3, 3, 3).repeat(n)
         for a, prob in enumerate(action_probs):
             if prob != 0:
                 child_state = self.state.copy()

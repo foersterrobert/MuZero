@@ -27,14 +27,14 @@ class MuZero(nn.Module):
             row = action // 3
             col = action % 3
             if (np.sum(hidden_state[1]) != 0 
-                and max(np.sum(hidden_state[0], axis=0)) < 3 
-                and max(np.sum(hidden_state[0], axis=1)) < 3
-                and sum(np.diag(hidden_state[0])) < 3
-                and sum(np.diag(np.fliplr(hidden_state[0]))) < 3
-                and max(np.sum(hidden_state[2], axis=0)) < 3
-                and max(np.sum(hidden_state[2], axis=1)) < 3
-                and sum(np.diag(hidden_state[2])) < 3
-                and sum(np.diag(np.fliplr(hidden_state[2]))) < 3
+                and np.max(np.sum(hidden_state[0], axis=0)) < 3 
+                and np.max(np.sum(hidden_state[0], axis=1)) < 3
+                and np.sum(np.diag(hidden_state[0])) < 3
+                and np.sum(np.diag(np.fliplr(hidden_state[0]))) < 3
+                and np.max(np.sum(hidden_state[2], axis=0)) < 3
+                and np.max(np.sum(hidden_state[2], axis=1)) < 3
+                and np.sum(np.diag(hidden_state[2])) < 3
+                and np.sum(np.diag(np.fliplr(hidden_state[2]))) < 3
                 and hidden_state[1, row, col] == 1
             ):
                 hidden_state[1, row, col] = 0

@@ -42,8 +42,12 @@ class TicTacToe:
     def get_valid_locations(self, observation):
         return (observation.reshape(-1) == 0)
 
-    def get_canonical_state(self, hidden_state, player):
-        return hidden_state if player == 1 else np.flipud(hidden_state)
+    def get_canonical_state(self, hidden_state, player, axis=1, parallel=False):
+        if parallel:
+            for i in range(hidden_state.shape[0]):
+                hidden_state[i] = self.get_canonical_state(hidden_state[i], player[i], axis=0)
+
+        return hidden_state if player == 1 else np.flip(hidden_state, axis)
 
     def get_encoded_observation(self, observation, parallel=False):
         if parallel:
@@ -63,7 +67,7 @@ class TicTacToe:
     def check_terminal_and_value(self, observation, action):
         if self.is_position_a_winner(observation, action):
             return (True, 1)
-        if sum(self.get_valid_locations(observation)) == 0:
+        if np.sum(self.get_valid_locations(observation)) == 0:
             return (True, 0)
         return (False, 0)
     
