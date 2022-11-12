@@ -13,12 +13,12 @@ class KaggleAgent:
         valid_moves = self.game.get_valid_locations(observation)
         
         encoded_observation = self.game.get_encoded_observation(observation)
-        canonical_observation = self.game.get_canonical_state(encoded_observation, player).copy()
+        canonical_observation = self.game.get_canonical_state(encoded_observation, player, axis=0).copy()
 
         with torch.no_grad():
             canonical_observation = torch.tensor(canonical_observation, dtype=torch.float32, device=self.model.device)
             policy, _ = self.model.predict(canonical_observation.unsqueeze(0))
             policy = torch.softmax(policy, dim=1).squeeze(0).cpu().numpy()
             policy = policy * valid_moves
-        action = np.argmax(policy)
+        action = int(np.argmax(policy))
         return action

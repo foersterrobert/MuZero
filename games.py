@@ -40,7 +40,7 @@ class TicTacToe:
         return observation, valid_locations, reward, is_terminal
 
     def get_valid_locations(self, observation):
-        return (observation.reshape(-1) == 0)
+        return (observation.reshape(-1) == 0).astype(np.uint8)
 
     def get_canonical_state(self, hidden_state, player, axis=1, parallel=False):
         if parallel:
@@ -53,14 +53,14 @@ class TicTacToe:
         if parallel:
             encoded_observation = np.swapaxes(np.stack(
                 ((observation == -1), (observation == 0), (observation == 1))), 0, 1
-            )
+            ).astype(np.float32)
 
         else:
             encoded_observation = np.stack((
                 (observation == -1),
                 (observation == 0),
                 (observation == 1)
-            ))
+            )).astype(np.float32)
 
         return encoded_observation
 

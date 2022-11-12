@@ -125,7 +125,7 @@ class Trainer:
             # reward_loss = 0
 
             observation, player, action, policy, value, reward = list(zip(*self.replayBuffer.trajectories[batchIdx:min(len(self.replayBuffer) -1, batchIdx + self.args['batch_size'])]))
-            observation = self.game.get_encoded_state(np.stack(observation), parallel=True)
+            observation = self.game.get_encoded_observation(np.stack(observation), parallel=True)
             observation = self.game.get_canonical_state(observation, player, parallel=True).copy()
             
             state = torch.tensor(observation, dtype=torch.float32, device=self.device)
