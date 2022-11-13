@@ -46,6 +46,7 @@ class TicTacToe:
         if parallel:
             for i in range(hidden_state.shape[0]):
                 hidden_state[i] = self.get_canonical_state(hidden_state[i], player[i], axis=0)
+            return hidden_state
 
         return hidden_state if player == 1 else np.flip(hidden_state, axis)
 
