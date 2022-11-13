@@ -119,8 +119,7 @@ class Trainer:
                 player = [self.game.get_opponent_player(p) for p in player]
 
         loss = value_loss * self.args['value_loss_weight'] + policy_loss #+ reward_loss
-        loss = loss.mean()
-    
+
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
