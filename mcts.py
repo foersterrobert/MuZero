@@ -79,12 +79,14 @@ class MCTS:
         hidden_state = self.muZero.represent(observation)
         root = Node(hidden_state, reward, player, 0, self.muZero, self.args, self.game)
 
-        action_probs, value = self.muZero.predict(hidden_state)
-        action_probs = torch.softmax(action_probs, dim=1).squeeze(0)
+        action_probs, value = self.muZero.predict(
+            torch.tensor(hidden_state, dtype=torch.float32, device=self.muZero.device).unsqueeze(0)
+        )
+        action_probs = torch.softmax(action_probs, dim=1).cpu().numpy().squeeze(0)
         value = value.item()
 
         action_probs *= available_actions
-        action_probs /= torch.sum(action_probs)
+        action_probs /= np.sum(action_probs)
 
         root.expand(action_probs)
 
@@ -94,9 +96,11 @@ class MCTS:
             while node.is_expandable():
                 node = node.select_child()
 
-            canonical_hidden_state = self.game.get_canonical_state(node.state, node.player)
-            action_probs, value = self.muZero.predict(canonical_hidden_state)
-            action_probs = torch.softmax(action_probs, dim=1).squeeze(0)
+            canonical_hidden_state = self.game.get_canonical_state(node.state, node.player).copy()
+            action_probs, value = self.muZero.predict(
+                torch.tensor(canonical_hidden_state, dtype=torch.float32, device=self.muZero.device).unsqueeze(0)
+            )
+            action_probs = torch.softmax(action_probs, dim=1).cpu().numpy().squeeze(0)
             value = value.item()
 
             node.expand(action_probs)
