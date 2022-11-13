@@ -23,25 +23,25 @@ class Trainer:
 
         while True:
             encoded_observation = self.game.get_encoded_observation(observation)
-            canonical_observation = self.game.get_canonical_state(encoded_observation, player)
+            canonical_observation = self.game.get_canonical_state(encoded_observation, player).copy()
             root = self.mcts.search(canonical_observation, reward, valid_locations, player=1)
 
-            action_probs = torch.zeros(self.game.action_size)
+            action_probs = np.zeros(self.game.action_size, dtype=np.float32)
             for child in root.children:
                 action_probs[child.action_taken] = child.visit_count
-            action_probs /= torch.sum(action_probs)
+            action_probs /= np.sum(action_probs)
 
             # sample action from the mcts policy | based on temperature
             if self.args['temperature'] == 0:
-                action = torch.argmax(action_probs).item()
+                action = np.argmax(action_probs)
             elif self.args['temperature'] == float('inf'):
                 action = np.random.choice([r for r in range(self.game.action_size) if action_probs[r] > 0])
             else:
                 temperature_action_probs = action_probs ** (1 / self.args['temperature'])
-                temperature_action_probs /= torch.sum(temperature_action_probs)
-                action = np.random.choice(len(temperature_action_probs), p=temperature_action_probs.detach().numpy())
+                temperature_action_probs /= np.sum(temperature_action_probs)
+                action = np.random.choice(len(temperature_action_probs), p=temperature_action_probs)
 
-            game_memory.append((root.state, action, player, action_probs, reward, is_terminal))
+            game_memory.append((observation, action, player, action_probs, reward, is_terminal))
 
             observation, valid_locations, reward, is_terminal = self.game.step(observation, action, player)
 
@@ -49,12 +49,21 @@ class Trainer:
                 return_memory = []
                 for hist_state, hist_action, hist_player, hist_action_probs, hist_reward, hist_terminal in game_memory:
                     return_memory.append((
-                        hist_state, hist_action, hist_action_probs, reward * ((-1) ** (hist_player != player)), hist_reward, game_idx, hist_terminal
+                        hist_state,
+                        hist_player,
+                        hist_action, 
+                        hist_action_probs,
+                        reward * ((-1) ** (hist_player != player)),
+                        hist_reward,
+                        game_idx,
+                        hist_terminal
+
                     ))
                 return_memory.append((
-                    self.game.get_canonical_state(self.game.get_encoded_observation(observation), self.game.get_opponent_player(player)),
-                    0,
-                    torch.zeros(self.game.action_size),
+                    observation,
+                    self.game.get_opponent_player(player),
+                    None,
+                    np.zeros(self.game.action_size, dtype=np.float32),
                     -1 * reward,
                     0,
                     game_idx,
@@ -71,26 +80,43 @@ class Trainer:
             value_loss = 0
             # reward_loss = 0
 
-            state, action, policy, value, reward = list(zip(*self.replayBuffer.trajectories[batchIdx:min(len(self.replayBuffer) -1, batchIdx + self.args['batch_size'])]))
-            state = torch.vstack(state).to(self.device)
-            policy = torch.stack(policy).swapaxes(0, 1).to(self.device)
-            value = torch.stack(value).swapaxes(0, 1).unsqueeze(2).to(self.device)
-            action = np.stack(action).swapaxes(0, 1)
+            observation, player, action, policy, value, reward = list(zip(*self.replayBuffer.trajectories[batchIdx:min(len(self.replayBuffer) -1, batchIdx + self.args['batch_size'])]))
+            observation = self.game.get_encoded_observation(np.stack(observation), parallel=True)
+            observation = self.game.get_canonical_state(observation, player, parallel=True).copy()
+            
+            state = torch.tensor(observation, dtype=torch.float32, device=self.device)
+            policy = torch.tensor(np.stack(policy).swapaxes(0, 1), dtype=torch.float32, device=self.device)
+            value = torch.tensor(np.array(value).swapaxes(0, 1).reshape(self.args['K'] + 1, -1, 1), dtype=torch.float32, device=self.device)
+            action = np.array(action).swapaxes(0, 1)
 
-            hidden_state = self.muZero.represent(state)
-            out_policy, out_value = self.muZero.predict(hidden_state)
+            # state = self.muZero.represent(state)
+            out_policy, out_value = self.muZero.predict(state)
 
             policy_loss += F.cross_entropy(out_policy, policy[0]) 
             value_loss += F.mse_loss(out_value, value[0])
 
+            observation, out_reward = self.muZero.dynamics(observation, action[0], parallel=True)
+            observation = self.game.get_canonical_state(observation, player, parallel=True).copy()
+
+            # reward_loss += F.mse_loss(out_reward, reward[0])
+
+            player = [self.game.get_opponent_player(p) for p in player]
+
             for k in range(1, self.args['K'] + 1):
-                hidden_state, out_reward = self.muZero.dynamics(hidden_state.clone(), action[k - 1], parallel=True)
-                hidden_state = self.game.get_canonical_state(hidden_state, -1)
-                out_policy, out_value = self.muZero.predict(hidden_state)
+                observation = self.game.get_canonical_state(observation, player, parallel=True).copy()
+                state = torch.tensor(observation, dtype=torch.float32, device=self.device)
+
+                out_policy, out_value = self.muZero.predict(state)
 
                 policy_loss += F.cross_entropy(out_policy, policy[k])
                 value_loss += F.mse_loss(out_value, value[k])
+
+                observation, out_reward = self.muZero.dynamics(observation, action[k], parallel=True)
+                observation = self.game.get_canonical_state(observation, player, parallel=True).copy()
+
                 # reward_loss += F.mse_loss(out_reward, reward[k])
+
+                player = [self.game.get_opponent_player(p) for p in player]
 
         loss = value_loss * self.args['value_loss_weight'] + policy_loss #+ reward_loss
         loss = loss.mean()
