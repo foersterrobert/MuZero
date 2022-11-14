@@ -65,7 +65,7 @@ class Trainer:
                     self_play_game.node.backpropagate(value[i])
 
             for self_play_game in self_play_games:
-                action_probs = np.zeros(self.game.action_size, dtype=np.float32)
+                action_probs = [0] * self.game.action_size
                 for child in self_play_game.root.children:
                     action_probs[child.action_taken] = child.visit_count
                 action_probs /= np.sum(action_probs)
