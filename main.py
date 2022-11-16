@@ -65,7 +65,6 @@ if __name__ == '__main__':
     game = TicTacToe()
     muZero = MuZero(game, args).to(device)
     optimizer = Adam(muZero.parameters(), lr=0.001, weight_decay=0.0001)
-    
     if LOAD:
         muZero.load_state_dict(torch.load(f'Models/{game}/model_13.pt'))
         optimizer.load_state_dict(torch.load(f'Models/{game}/optimizer_13.pt'))

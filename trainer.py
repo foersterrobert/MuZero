@@ -41,7 +41,7 @@ class Trainer:
                 temperature_action_probs /= np.sum(temperature_action_probs)
                 action = np.random.choice(len(temperature_action_probs), p=temperature_action_probs)
 
-            game_memory.append((observation, action, player, action_probs, reward, is_terminal))
+            game_memory.append((canonical_observation, action, player, action_probs, reward, is_terminal))
 
             observation, valid_locations, reward, is_terminal = self.game.step(observation, action, player)
 
@@ -60,7 +60,7 @@ class Trainer:
 
                     ))
                 return_memory.append((
-                    observation,
+                    self.game.get_canonical_state(self.game.get_encoded_observation(observation), self.game.get_opponent_player(player)).copy(),
                     self.game.get_opponent_player(player),
                     None,
                     np.zeros(self.game.action_size, dtype=np.float32),
@@ -81,8 +81,6 @@ class Trainer:
             # reward_loss = 0
 
             observation, player, action, policy, value, reward = list(zip(*self.replayBuffer.trajectories[batchIdx:min(len(self.replayBuffer) -1, batchIdx + self.args['batch_size'])]))
-            observation = self.game.get_encoded_observation(np.stack(observation), parallel=True)
-            observation = self.game.get_canonical_state(observation, player, parallel=True).copy()
             
             state = torch.tensor(observation, dtype=torch.float32, device=self.device)
             policy = torch.tensor(np.stack(policy).swapaxes(0, 1), dtype=torch.float32, device=self.device)
