@@ -48,7 +48,7 @@ class TicTacToe:
                 hidden_state[i] = self.get_canonical_state(hidden_state[i], player[i])
             return hidden_state
 
-        return hidden_state if player == 1 else np.flip(hidden_state, axis=int(hidden_state.shape == 4))
+        return hidden_state if player == 1 else np.flip(hidden_state, axis=int(len(hidden_state.shape) == 4))
 
     def get_encoded_observation(self, observation, parallel=False):
         if parallel:
