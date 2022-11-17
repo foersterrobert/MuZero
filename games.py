@@ -42,13 +42,13 @@ class TicTacToe:
     def get_valid_locations(self, observation):
         return (observation.reshape(-1) == 0).astype(np.uint8)
 
-    def get_canonical_state(self, hidden_state, player, axis=1, parallel=False):
-        if parallel:
+    def get_canonical_state(self, hidden_state, player):
+        if type(player) == list:
             for i in range(hidden_state.shape[0]):
-                hidden_state[i] = self.get_canonical_state(hidden_state[i], player[i], axis=0)
+                hidden_state[i] = self.get_canonical_state(hidden_state[i], player[i])
             return hidden_state
 
-        return hidden_state if player == 1 else np.flip(hidden_state, axis)
+        return hidden_state if player == 1 else np.flip(hidden_state, axis=int(hidden_state.shape == 4))
 
     def get_encoded_observation(self, observation, parallel=False):
         if parallel:

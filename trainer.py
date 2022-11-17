@@ -94,14 +94,14 @@ class Trainer:
             value_loss += F.mse_loss(out_value, value[0])
 
             observation, out_reward = self.muZero.dynamics(observation, action[0], parallel=True)
-            observation = self.game.get_canonical_state(observation, player, parallel=True).copy()
+            observation = self.game.get_canonical_state(observation, player).copy()
 
             # reward_loss += F.mse_loss(out_reward, reward[0])
 
             player = [self.game.get_opponent_player(p) for p in player]
 
             for k in range(1, self.args['K'] + 1):
-                observation = self.game.get_canonical_state(observation, player, parallel=True).copy()
+                observation = self.game.get_canonical_state(observation, player).copy()
                 state = torch.tensor(observation, dtype=torch.float32, device=self.device)
 
                 out_policy, out_value = self.muZero.predict(state)
@@ -110,7 +110,7 @@ class Trainer:
                 value_loss += F.mse_loss(out_value, value[k])
 
                 observation, out_reward = self.muZero.dynamics(observation, action[k], parallel=True)
-                observation = self.game.get_canonical_state(observation, player, parallel=True).copy()
+                observation = self.game.get_canonical_state(observation, player).copy()
 
                 # reward_loss += F.mse_loss(out_reward, reward[k])
 
