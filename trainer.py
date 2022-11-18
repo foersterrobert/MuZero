@@ -81,7 +81,8 @@ class Trainer:
             # reward_loss = 0
 
             observation, player, action, policy, value, reward = list(zip(*self.replayBuffer.trajectories[batchIdx:min(len(self.replayBuffer) -1, batchIdx + self.args['batch_size'])]))
-            
+            observation = np.stack(observation)
+
             state = torch.tensor(observation, dtype=torch.float32, device=self.device)
             policy = torch.tensor(np.stack(policy).swapaxes(0, 1), dtype=torch.float32, device=self.device)
             value = torch.tensor(np.array(value).swapaxes(0, 1).reshape(self.args['K'] + 1, -1, 1), dtype=torch.float32, device=self.device)
