@@ -19,8 +19,8 @@ class MuZero(nn.Module):
         return observation
         # return self.representationFunction(observation)
 
-    def dynamics(self, hidden_state, action, parallel=False):
-        if parallel:
+    def dynamics(self, hidden_state, action):
+        if len(hidden_state.shape) == 4:
             for i in range(hidden_state.shape[0]):
                 hidden_state[i], _ = self.dynamics(hidden_state[i], action[i])
         else:
