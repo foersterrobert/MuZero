@@ -94,7 +94,7 @@ class Trainer:
             policy_loss += F.cross_entropy(out_policy, policy[0]) 
             value_loss += F.mse_loss(out_value, value[0])
 
-            observation, out_reward = self.muZero.dynamics(observation, action[0], parallel=True)
+            observation, out_reward = self.muZero.dynamics(observation, action[0])
             observation = self.game.get_canonical_state(observation, player).copy()
 
             # reward_loss += F.mse_loss(out_reward, reward[0])
@@ -110,7 +110,7 @@ class Trainer:
                 policy_loss += F.cross_entropy(out_policy, policy[k])
                 value_loss += F.mse_loss(out_value, value[k])
 
-                observation, out_reward = self.muZero.dynamics(observation, action[k], parallel=True)
+                observation, out_reward = self.muZero.dynamics(observation, action[k])
                 observation = self.game.get_canonical_state(observation, player).copy()
 
                 # reward_loss += F.mse_loss(out_reward, reward[k])

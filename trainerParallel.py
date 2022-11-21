@@ -25,7 +25,7 @@ class Trainer:
             del_list = []
 
             observations = np.stack([self_play_game.observation for self_play_game in self_play_games])
-            encoded_observations = self.game.get_encoded_observation(observations, parallel=True)
+            encoded_observations = self.game.get_encoded_observation(observations)
             canonical_observations = self.game.get_canonical_state(encoded_observations, player).copy()
             hidden_state = torch.tensor(canonical_observations, dtype=torch.float32, device=self.device) # self.muZero.represent(canonical_observations) 
 
@@ -125,7 +125,7 @@ class Trainer:
             # reward_loss = 0
 
             observation, player, action, policy, value, reward = list(zip(*self.replayBuffer.trajectories[batchIdx:min(len(self.replayBuffer) -1, batchIdx + self.args['batch_size'])]))
-            observation = self.game.get_encoded_observation(np.stack(observation), parallel=True)
+            observation = self.game.get_encoded_observation(np.stack(observation))
             observation = self.game.get_canonical_state(observation, player).copy()
             
             state = torch.tensor(observation, dtype=torch.float32, device=self.device)
@@ -139,7 +139,7 @@ class Trainer:
             policy_loss += F.cross_entropy(out_policy, policy[0]) 
             value_loss += F.mse_loss(out_value, value[0])
 
-            observation, out_reward = self.muZero.dynamics(observation, action[0], parallel=True)
+            observation, out_reward = self.muZero.dynamics(observation, action[0])
             observation = self.game.get_canonical_state(observation, player).copy()
 
             # reward_loss += F.mse_loss(out_reward, reward[0])
@@ -155,7 +155,7 @@ class Trainer:
                 policy_loss += F.cross_entropy(out_policy, policy[k])
                 value_loss += F.mse_loss(out_value, value[k])
 
-                observation, out_reward = self.muZero.dynamics(observation, action[k], parallel=True)
+                observation, out_reward = self.muZero.dynamics(observation, action[k])
                 observation = self.game.get_canonical_state(observation, player).copy()
 
                 # reward_loss += F.mse_loss(out_reward, reward[k])
