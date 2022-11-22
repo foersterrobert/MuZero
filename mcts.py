@@ -76,7 +76,7 @@ class MCTS:
 
     @torch.no_grad()
     def search(self, observation, reward, available_actions, player=1):
-        hidden_state = self.muZero.represent(observation)
+        hidden_state = observation # self.muZero.represent(observation)
         root = Node(hidden_state, reward, player, 0, self.muZero, self.args, self.game)
 
         action_probs, value = self.muZero.predict(
