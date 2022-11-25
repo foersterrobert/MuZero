@@ -4,8 +4,8 @@ import numpy as np
 import random
 from games import TicTacToe
 from models import MuZero
-# from trainer import Trainer
-from trainerParallel import Trainer
+from trainer import Trainer
+# from trainerParallel import Trainer
 
 # In training: scale hidden state ([0, 1])
 # In training: scale loss 1/k
@@ -36,9 +36,9 @@ if __name__ == '__main__':
     # }
     args = {
         'num_iterations': 20,             # number of highest level iterations
-        'num_train_games': 512,           # number of self-play games to play within each iteration
-        'group_size': 256,                # group size for parallel training
-        'num_mcts_runs': 40,              # number of mcts simulations when selecting a move within self-play
+        'num_train_games': 500,           # number of self-play games to play within each iteration
+        'group_size': 250,                # group size for parallel training
+        'num_mcts_runs': 60,              # number of mcts simulations when selecting a move within self-play
         'num_epochs': 4,                  # number of epochs for training on self-play data for each iteration
         'batch_size': 32,                 # batch size for training
         'temperature': 1,                 # temperature for the softmax selection of moves
