@@ -42,7 +42,7 @@ if __name__ == '__main__':
         'num_epochs': 4,                  # number of epochs for training on self-play data for each iteration
         'batch_size': 32,                 # batch size for training
         'temperature': 1,                 # temperature for the softmax selection of moves
-        'K': 3,                           # unroll K steps of the dynamics function when training
+        'K': 0, # Cheat!                  # unroll K steps of the dynamics function when training
         'c': 2,                           # the value of the constant policy
         'c1': 1.25,                       # the value of the constant policy
         'c2': 19652,                      # the value of the constant policy
@@ -60,7 +60,9 @@ if __name__ == '__main__':
         'representationFunction': {
             'num_resBlocks': 4,
             'hidden_planes': 128
-        }
+        },
+        'cheatAvailableActions': True,
+        'cheatTerminalState': True,
     }
     game = TicTacToe()
     muZero = MuZero(game, args).to(device)
