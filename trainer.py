@@ -76,7 +76,7 @@ class Trainer:
 
     def train(self):
         random.shuffle(self.replayBuffer.trajectories)
-        for batchIdx in range(0, len(self.replayBuffer), self.args['batch_size']): 
+        for batchIdx in range(0, len(self.replayBuffer) - 1, self.args['batch_size']): 
             policy_loss = 0
             value_loss = 0
             # reward_loss = 0
