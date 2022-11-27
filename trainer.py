@@ -57,7 +57,6 @@ class Trainer:
                         hist_reward,
                         game_idx,
                         hist_terminal
-
                     ))
                 if not self.args['cheatTerminalState']:
                     return_memory.append((

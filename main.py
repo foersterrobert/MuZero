@@ -35,12 +35,12 @@ if __name__ == '__main__':
     #     'discount': 0.997
     # }
     args = {
-        'num_iterations': 20,             # number of highest level iterations
+        'num_iterations': 8,              # number of highest level iterations
         'num_train_games': 500,           # number of self-play games to play within each iteration
         'group_size': 250,                # group size for parallel training
         'num_mcts_runs': 60,              # number of mcts simulations when selecting a move within self-play
         'num_epochs': 4,                  # number of epochs for training on self-play data for each iteration
-        'batch_size': 32,                 # batch size for training
+        'batch_size': 64,                 # batch size for training
         'temperature': 1,                 # temperature for the softmax selection of moves
         'K': 0, # Cheat!                  # unroll K steps of the dynamics function when training
         'c': 2,                           # the value of the constant policy
@@ -68,8 +68,8 @@ if __name__ == '__main__':
     muZero = MuZero(game, args).to(device)
     optimizer = Adam(muZero.parameters(), lr=0.001, weight_decay=0.0001)
     if LOAD:
-        muZero.load_state_dict(torch.load(f'Models/{game}/model_13.pt'))
-        optimizer.load_state_dict(torch.load(f'Models/{game}/optimizer_13.pt'))
+        muZero.load_state_dict(torch.load(f'Models/{game}/model_2.pt'))
+        optimizer.load_state_dict(torch.load(f'Models/{game}/optimizer_2.pt'))
 
     trainer = Trainer(muZero, optimizer, game, args)
     trainer.run()
