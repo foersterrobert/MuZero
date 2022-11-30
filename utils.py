@@ -24,11 +24,11 @@ class KaggleAgent:
             policy /= np.sum(policy)
 
         if self.temperature == 0:
-            action = np.argmax(policy)
+            action = int(np.argmax(policy))
 
         else:
             policy = policy ** (1 / self.temperature)
             policy /= np.sum(policy)
             action = np.random.choice(self.game.action_size, p=policy)
-            
+
         return action
