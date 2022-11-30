@@ -26,7 +26,7 @@ class Trainer:
             canonical_observation = self.game.get_canonical_state(encoded_observation, player).copy()
             root = self.mcts.search(canonical_observation, reward, valid_locations, player=1)
 
-            action_probs = np.zeros(self.game.action_size, dtype=np.float32)
+            action_probs = [0] * self.game.action_size
             for child in root.children:
                 action_probs[child.action_taken] = child.visit_count
             action_probs /= np.sum(action_probs)
@@ -118,12 +118,12 @@ class Trainer:
 
                     player = [self.game.get_opponent_player(p) for p in player]
 
-        loss = value_loss * self.args['value_loss_weight'] + policy_loss #+ reward_loss
-        loss /= self.args['K'] + 1
+            loss = value_loss * self.args['value_loss_weight'] + policy_loss #+ reward_loss
+            loss /= self.args['K'] + 1
 
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
 
     def run(self):
         for iteration in range(self.args['num_iterations']):

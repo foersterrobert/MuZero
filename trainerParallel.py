@@ -162,12 +162,12 @@ class Trainer:
 
                 player = [self.game.get_opponent_player(p) for p in player]
 
-        loss = value_loss * self.args['value_loss_weight'] + policy_loss #+ reward_loss
-        loss /= self.args['K'] + 1
-    
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
+            loss = value_loss * self.args['value_loss_weight'] + policy_loss #+ reward_loss
+            loss /= self.args['K'] + 1
+        
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
 
     def run(self):
         for iteration in range(self.args['num_iterations']):
