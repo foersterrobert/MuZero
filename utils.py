@@ -2,9 +2,10 @@ import torch
 import numpy as np
 
 class KaggleAgent:
-    def __init__(self, model, game):
+    def __init__(self, model, game, temperature=0):
         self.model = model
         self.game = game
+        self.temperature = temperature
 
     def run(self, obs, conf):
         player = obs['mark'] if obs['mark'] == 1 else -1
@@ -19,6 +20,15 @@ class KaggleAgent:
             canonical_observation = torch.tensor(canonical_observation, dtype=torch.float32, device=self.model.device)
             policy, _ = self.model.predict(canonical_observation.unsqueeze(0))
             policy = torch.softmax(policy, dim=1).squeeze(0).cpu().numpy()
-            policy = policy * valid_moves
-        action = int(np.argmax(policy))
+            policy *= valid_moves
+            policy /= np.sum(policy)
+
+        if self.temperature == 0:
+            action = np.argmax(policy)
+
+        else:
+            policy = policy ** (1 / self.temperature)
+            policy /= np.sum(policy)
+            action = np.random.choice(self.game.action_size, p=policy)
+            
         return action
