@@ -61,8 +61,29 @@ class Trainer:
                 value = value.cpu().numpy().squeeze(1)
 
                 for i, self_play_game in enumerate(self_play_games):
-                    self_play_game.node.expand(action_probs[i])
-                    self_play_game.node.backpropagate(value[i])
+                    my_value, my_action_probs = None, None
+                    if self.args['cheatAvailableActions'] or self.args['cheatTerminalState']:
+                        unencoded_state = node.state.copy()
+                        unencoded_state = (
+                            unencoded_state * np.array([-1, 0, 1]).repeat(9).reshape(3, 3, 3)
+                        ).sum(axis=0)
+
+                        if self.args['cheatTerminalState']:
+                            is_terminal, value_cheat = self.game.check_terminal_and_value(unencoded_state, node.action_taken)
+                            if is_terminal:
+                                value_cheat = self.game.get_opponent_value(value_cheat)
+                                my_value = value_cheat
+
+                    if not self.args['cheatTerminalState'] or not is_terminal:
+                        my_action_probs, my_value = action_probs[i], value[i]
+
+                        if self.args['cheatAvailableActions']:
+                            available_actions = self.game.get_valid_locations(unencoded_state)
+                            my_action_probs *= available_actions
+                            my_action_probs /= np.sum(my_action_probs)
+
+                        self_play_game.node.expand(my_action_probs)
+                    self_play_game.node.backpropagate(my_value)
 
             for self_play_game in self_play_games:
                 action_probs = [0] * self.game.action_size
@@ -97,16 +118,17 @@ class Trainer:
                             self_play_game.game_idx, 
                             hist_terminal, 
                         ))
-                    return_memory.append((
-                        self_play_game.observation,
-                        self.game.get_opponent_player(player),
-                        None,
-                        np.zeros(self.game.action_size, dtype=np.float32),
-                        -1 * self_play_game.reward,
-                        0,
-                        self_play_game.game_idx,
-                        self_play_game.is_terminal,
-                    ))
+                    if not self.args['cheatTerminalState']:
+                        return_memory.append((
+                            self_play_game.observation,
+                            self.game.get_opponent_player(player),
+                            None,
+                            np.zeros(self.game.action_size, dtype=np.float32),
+                            -1 * self_play_game.reward,
+                            0,
+                            self_play_game.game_idx,
+                            self_play_game.is_terminal,
+                        ))
                     self_play_memory.extend(return_memory)
                     del_list.append(self_play_game)
 
@@ -133,34 +155,35 @@ class Trainer:
             value = torch.tensor(np.array(value).swapaxes(0, 1).reshape(self.args['K'] + 1, -1, 1), dtype=torch.float32, device=self.device)
             action = np.array(action).swapaxes(0, 1)
 
-            # state = self.muZero.represent(state)
+            state = self.muZero.represent(state)
             out_policy, out_value = self.muZero.predict(state)
 
             policy_loss += F.cross_entropy(out_policy, policy[0]) 
             value_loss += F.mse_loss(out_value, value[0])
 
-            observation, out_reward = self.muZero.dynamics(observation, action[0])
-            observation = self.game.get_canonical_state(observation, player).copy()
-
-            # reward_loss += F.mse_loss(out_reward, reward[0])
-
-            player = [self.game.get_opponent_player(p) for p in player]
-
-            for k in range(1, self.args['K'] + 1):
-                observation = self.game.get_canonical_state(observation, player).copy()
-                state = torch.tensor(observation, dtype=torch.float32, device=self.device)
-
-                out_policy, out_value = self.muZero.predict(state)
-
-                policy_loss += F.cross_entropy(out_policy, policy[k])
-                value_loss += F.mse_loss(out_value, value[k])
-
-                observation, out_reward = self.muZero.dynamics(observation, action[k])
+            if self.args['K'] > 0:
+                observation, out_reward = self.muZero.dynamics(observation, action[0])
                 observation = self.game.get_canonical_state(observation, player).copy()
 
-                # reward_loss += F.mse_loss(out_reward, reward[k])
+                # reward_loss += F.mse_loss(out_reward, reward[0])
 
                 player = [self.game.get_opponent_player(p) for p in player]
+
+                for k in range(1, self.args['K'] + 1):
+                    observation = self.game.get_canonical_state(observation, player).copy()
+                    state = torch.tensor(observation, dtype=torch.float32, device=self.device)
+
+                    out_policy, out_value = self.muZero.predict(state)
+
+                    policy_loss += F.cross_entropy(out_policy, policy[k])
+                    value_loss += F.mse_loss(out_value, value[k])
+
+                    observation, out_reward = self.muZero.dynamics(observation, action[k])
+                    observation = self.game.get_canonical_state(observation, player).copy()
+
+                    # reward_loss += F.mse_loss(out_reward, reward[k])
+
+                    player = [self.game.get_opponent_player(p) for p in player]
 
             loss = value_loss * self.args['value_loss_weight'] + policy_loss #+ reward_loss
             loss /= self.args['K'] + 1
