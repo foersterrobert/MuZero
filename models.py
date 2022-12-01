@@ -20,7 +20,7 @@ class MuZero(nn.Module):
         # return self.representationFunction(observation)
 
     def dynamics(self, hidden_state, action):
-        if len(hidden_state.shape) == 4:
+        if type(action) == list:
             for i in range(hidden_state.shape[0]):
                 hidden_state[i], _ = self.dynamics(hidden_state[i], action[i])
         else:
