@@ -83,8 +83,6 @@ class MCTS:
             torch.tensor(hidden_state, dtype=torch.float32, device=self.muZero.device).unsqueeze(0)
         )
         action_probs = torch.softmax(action_probs, dim=1).cpu().numpy().squeeze(0)
-        value = value.item()
-
         action_probs *= available_actions
         action_probs /= np.sum(action_probs)
 
