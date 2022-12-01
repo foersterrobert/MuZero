@@ -103,7 +103,7 @@ class Trainer:
                     temperature_action_probs /= np.sum(temperature_action_probs)
                     action = np.random.choice(len(temperature_action_probs), p=temperature_action_probs)
 
-                self_play_game.game_memory.append((self_play_game.observation, action, player, action_probs, self_play_game.reward, self_play_game.is_terminal))
+                self_play_game.game_memory.append((self_play_game.root.state, action, player, action_probs, self_play_game.reward, self_play_game.is_terminal))
 
                 self_play_game.observation, self_play_game.valid_locations, self_play_game.reward, self_play_game.is_terminal = self.game.step(self_play_game.observation, action, player)
 
@@ -122,7 +122,7 @@ class Trainer:
                         ))
                     if not self.args['cheatTerminalState']:
                         return_memory.append((
-                            self_play_game.observation,
+                            self.game.get_canonical_state(self.game.get_encoded_observation(self_play_game.observation), self.game.get_opponent_player(player)).copy(),
                             self.game.get_opponent_player(player),
                             None,
                             np.zeros(self.game.action_size, dtype=np.float32),
@@ -149,9 +149,8 @@ class Trainer:
             # reward_loss = 0
 
             observation, player, action, policy, value, reward = list(zip(*self.replayBuffer.trajectories[batchIdx:min(len(self.replayBuffer) -1, batchIdx + self.args['batch_size'])]))
-            observation = self.game.get_encoded_observation(np.stack(observation))
-            observation = self.game.get_canonical_state(observation, player).copy()
-            
+            observation = np.stack(observation)
+
             state = torch.tensor(observation, dtype=torch.float32, device=self.device)
             policy = torch.tensor(np.stack(policy).swapaxes(0, 1), dtype=torch.float32, device=self.device)
             value = torch.tensor(np.array(value).swapaxes(0, 1).reshape(self.args['K'] + 1, -1, 1), dtype=torch.float32, device=self.device)
@@ -189,7 +188,7 @@ class Trainer:
 
             loss = value_loss * self.args['value_loss_weight'] + policy_loss #+ reward_loss
             loss /= self.args['K'] + 1
-        
+
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
