@@ -19,26 +19,27 @@ class Node:
 
     @torch.no_grad()
     def expand(self, action_probs):
-        # n = len([r for r in action_probs if r > 0])
-        # child_state = self.state.copy().reshape(1, 3, 3, 3).repeat(n)
-        for a, prob in enumerate(action_probs):
-            if prob != 0:
-                child_state = self.state.copy()
-                child_state = self.game.get_canonical_state(child_state, self.player).copy()
-                child_state, reward = self.muZero.dynamics(child_state, a)
-                child_state = self.game.get_canonical_state(child_state, self.player).copy()
-                child = Node(
-                    child_state,
-                    reward,
-                    self.game.get_opponent_player(self.player),
-                    prob,
-                    self.muZero,
-                    self.args,
-                    self.game,
-                    parent=self,
-                    action_taken=a,
-                )
-                self.children.append(child)
+        actions = [a for a in range(self.game.action_size) if action_probs[a] > 0]
+        
+        expand_state = self.state.copy()
+        expand_state = self.game.get_canonical_state(expand_state, self.player).copy()
+        expand_state = expand_state.reshape(1, 3, 3, 3).repeat(len(actions), axis=0)
+        expand_state, reward = self.muZero.dynamics(expand_state, actions)
+        expand_state = self.game.get_canonical_state(expand_state, self.player).copy()
+        
+        for i, a in enumerate(actions):
+            child = Node(
+                expand_state[i],
+                reward,
+                self.game.get_opponent_player(self.player),
+                action_probs[a],
+                self.muZero,
+                self.args,
+                self.game,
+                parent=self,
+                action_taken=a,
+            )
+            self.children.append(child)
 
     def backpropagate(self, value):
         self.total_value += value
