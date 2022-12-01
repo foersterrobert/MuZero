@@ -27,7 +27,8 @@ class Trainer:
             observations = np.stack([self_play_game.observation for self_play_game in self_play_games])
             encoded_observations = self.game.get_encoded_observation(observations)
             canonical_observations = self.game.get_canonical_state(encoded_observations, player).copy()
-            hidden_state = torch.tensor(canonical_observations, dtype=torch.float32, device=self.device) # self.muZero.represent(canonical_observations) 
+            hidden_state = torch.tensor(canonical_observations, dtype=torch.float32, device=self.device) 
+            hidden_state = self.muZero.represent(hidden_state) 
 
             action_probs, value = self.muZero.predict(hidden_state)
             action_probs = torch.softmax(action_probs, dim=1).cpu().numpy()
@@ -42,6 +43,7 @@ class Trainer:
                 self_play_game_action_probs = action_probs[i]
                 self_play_game_action_probs *= self_play_game.valid_locations
                 self_play_game_action_probs /= np.sum(self_play_game_action_probs)
+
                 self_play_game.root.expand(self_play_game_action_probs)
 
             for simulation in range(self.args['num_mcts_runs']):
@@ -63,13 +65,13 @@ class Trainer:
                 for i, self_play_game in enumerate(self_play_games):
                     my_value, my_action_probs = None, None
                     if self.args['cheatAvailableActions'] or self.args['cheatTerminalState']:
-                        unencoded_state = node.state.copy()
+                        unencoded_state = self_play_game.node.state.copy()
                         unencoded_state = (
                             unencoded_state * np.array([-1, 0, 1]).repeat(9).reshape(3, 3, 3)
                         ).sum(axis=0)
 
                         if self.args['cheatTerminalState']:
-                            is_terminal, value_cheat = self.game.check_terminal_and_value(unencoded_state, node.action_taken)
+                            is_terminal, value_cheat = self.game.check_terminal_and_value(unencoded_state, self_play_game.node.action_taken)
                             if is_terminal:
                                 value_cheat = self.game.get_opponent_value(value_cheat)
                                 my_value = value_cheat
