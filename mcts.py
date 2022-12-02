@@ -76,14 +76,15 @@ class MCTS:
         self.args = args
 
     @torch.no_grad()
-    def search(self, observation, reward, available_actions, player=1):
+    def search(self, observation, reward, available_actions):
         hidden_state = self.muZero.represent(observation)
-        root = Node(hidden_state, reward, player, 0, self.muZero, self.args, self.game)
+        root = Node(hidden_state, reward, 1, 0, self.muZero, self.args, self.game)
 
         action_probs, value = self.muZero.predict(
             torch.tensor(hidden_state, dtype=torch.float32, device=self.muZero.device).unsqueeze(0)
         )
         action_probs = torch.softmax(action_probs, dim=1).cpu().numpy().squeeze(0)
+        action_probs = (1 - self.args['dirichlet_epsilon']) * action_probs + self.args['dirichlet_epsilon'] * np.random.dirichlet([self.args['dirichlet_alpha']] * self.game.action_size)
         action_probs *= available_actions
         action_probs /= np.sum(action_probs)
 

@@ -46,6 +46,8 @@ if __name__ == '__main__':
         'c1': 1.25,                       # the value of the constant policy
         'c2': 19652,                      # the value of the constant policy
         'n': 10,                          # steps to unroll for reward prediction
+        'alpha_dirichlet': 0.3,           # dirichlet noise for exploration
+        'epsilon_dirichlet': 0.25,        # dirichlet noise for exploration
         'discount': 0.997,
         'value_loss_weight': 1, # 0.25,
         'dynamicsFunction': {
