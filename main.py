@@ -4,8 +4,8 @@ import numpy as np
 import random
 from games import TicTacToe
 from models import MuZero
-# from trainer import Trainer
-from trainerParallel import Trainer
+from trainer import Trainer
+# from trainerParallel import Trainer
 
 # In training: scale hidden state ([0, 1])
 # change ucb in mcts
@@ -34,7 +34,7 @@ if __name__ == '__main__':
     #     'discount': 0.997
     # }
     args = {
-        'num_iterations': 12,              # number of highest level iterations
+        'num_iterations': 8,              # number of highest level iterations
         'num_train_games': 500,           # number of self-play games to play within each iteration
         'group_size': 500,                # group size for parallel training
         'num_mcts_runs': 60,              # number of mcts simulations when selecting a move within self-play
@@ -46,8 +46,8 @@ if __name__ == '__main__':
         'c1': 1.25,                       # the value of the constant policy
         'c2': 19652,                      # the value of the constant policy
         'n': 10,                          # steps to unroll for reward prediction
-        'alpha_dirichlet': 0.3,           # dirichlet noise for exploration
-        'epsilon_dirichlet': 0.25,        # dirichlet noise for exploration
+        'dirichlet_alpha': 0.3,           # dirichlet noise for exploration
+        'dirichlet_epsilon': 0.125,       # dirichlet noise for exploration
         'discount': 0.997,
         'value_loss_weight': 1, # 0.25,
         'dynamicsFunction': {

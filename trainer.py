@@ -24,7 +24,7 @@ class Trainer:
         while True:
             encoded_observation = self.game.get_encoded_observation(observation)
             canonical_observation = self.game.get_canonical_state(encoded_observation, player).copy()
-            root = self.mcts.search(canonical_observation, reward, valid_locations, player=1)
+            root = self.mcts.search(canonical_observation, reward, valid_locations)
 
             action_probs = [0] * self.game.action_size
             for child in root.children:
