@@ -13,9 +13,6 @@ class ReplayBuffer:
     def empty(self):
         self.memory = []
 
-    def add(self, game_memory):
-        self.memory.extend(game_memory)
-    
     def build_trajectories(self):
         self.trajectories = []
         for i in range(len(self.memory)):

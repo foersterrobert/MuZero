@@ -21,7 +21,7 @@ class MuZero(nn.Module):
 
     def dynamics(self, hidden_state, action):
         if type(action) == list:
-            for i in range(hidden_state.shape[0]):
+            for i in range(len(action)):
                 hidden_state[i], _ = self.dynamics(hidden_state[i], action[i])
         else:
             row = action // 3

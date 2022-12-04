@@ -154,7 +154,6 @@ class Trainer:
             state = torch.tensor(observation, dtype=torch.float32, device=self.device)
             policy = torch.tensor(np.stack(policy).swapaxes(0, 1), dtype=torch.float32, device=self.device)
             value = torch.tensor(np.array(value).swapaxes(0, 1).reshape(self.args['K'] + 1, -1, 1), dtype=torch.float32, device=self.device)
-            action = np.array(action).swapaxes(0, 1)
 
             state = self.muZero.represent(state)
             out_policy, out_value = self.muZero.predict(state)
@@ -163,6 +162,7 @@ class Trainer:
             value_loss += F.mse_loss(out_value, value[0])
 
             if self.args['K'] > 0:
+                action = np.array(action).swapaxes(0, 1)
                 observation, out_reward = self.muZero.dynamics(observation, action[0])
                 observation = self.game.get_canonical_state(observation, player).copy()
 
@@ -200,8 +200,7 @@ class Trainer:
 
             self.muZero.eval()
             for train_game_idx in trange(self.args['num_train_games'] // self.args['group_size'], desc="train_game"):
-                game_memory = self.self_play(train_game_idx + iteration * self.args['num_train_games'] // self.args['group_size'], group_size=self.args['group_size'])
-                self.replayBuffer.add(game_memory)
+                self.replayBuffer.memory += self.self_play(train_game_idx + iteration * self.args['num_train_games'] // self.args['group_size'], group_size=self.args['group_size'])
             self.replayBuffer.build_trajectories()
 
             self.muZero.train()
