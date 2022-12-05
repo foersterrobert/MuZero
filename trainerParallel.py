@@ -18,12 +18,9 @@ class Trainer:
     @torch.no_grad()
     def self_play(self, game_idx_group, group_size=100):
         self_play_games = [SelfPlayGame(self.game, game_idx_group * group_size + i) for i in range(group_size)]
-        self_play_memory = []
         player = 1
 
         while len(self_play_games) > 0:
-            del_list = []
-
             observations = np.stack([self_play_game.observation for self_play_game in self_play_games])
             encoded_observations = self.game.get_encoded_observation(observations)
             canonical_observations = self.game.get_canonical_state(encoded_observations, player).copy()
@@ -41,6 +38,7 @@ class Trainer:
                     1, 0, self.muZero, self.args, self.game
                 )
                 self_play_game_action_probs = action_probs[i]
+                self_play_game_action_probs = (1 - self.args['dirichlet_epsilon']) * self_play_game_action_probs + self.args['dirichlet_epsilon'] * np.random.dirichlet([self.args['dirichlet_alpha']] * self.game.action_size)
                 self_play_game_action_probs *= self_play_game.valid_locations
                 self_play_game_action_probs /= np.sum(self_play_game_action_probs)
 
@@ -56,7 +54,7 @@ class Trainer:
                     self_play_game.node = node
 
                 hidden_states = np.stack([self_play_game.node.state for self_play_game in self_play_games])
-                canonical_hidden_states = self.game.get_canonical_state(hidden_states, self_play_games[0].node.player).copy()
+                # player WRONG! canonical_hidden_states = self.game.get_canonical_state(hidden_states, self_play_games[0].node.player).copy()
                 canonical_hidden_states = torch.tensor(canonical_hidden_states, dtype=torch.float32, device=self.device)
                 action_probs, value = self.muZero.predict(canonical_hidden_states)
                 action_probs = torch.softmax(action_probs, dim=1).cpu().numpy()
@@ -87,7 +85,8 @@ class Trainer:
                         self_play_game.node.expand(my_action_probs)
                     self_play_game.node.backpropagate(my_value)
 
-            for self_play_game in self_play_games:
+            for i in range(len(self_play_games) - 1, -1, -1):
+                self_play_game = self_play_games[i]
                 action_probs = [0] * self.game.action_size
                 for child in self_play_game.root.children:
                     action_probs[child.action_taken] = child.visit_count
@@ -131,15 +130,10 @@ class Trainer:
                             self_play_game.game_idx,
                             self_play_game.is_terminal,
                         ))
-                    self_play_memory.extend(return_memory)
-                    del_list.append(self_play_game)
-
-            for self_play_game in del_list:
-                self_play_games.remove(self_play_game)
+                    self.replayBuffer.memory += return_memory
+                    del self_play_games[i]
 
             player = self.game.get_opponent_player(player)
-        
-        return self_play_memory
 
     def train(self):
         random.shuffle(self.replayBuffer.trajectories)
@@ -200,7 +194,7 @@ class Trainer:
 
             self.muZero.eval()
             for train_game_idx in trange(self.args['num_train_games'] // self.args['group_size'], desc="train_game"):
-                self.replayBuffer.memory += self.self_play(train_game_idx + iteration * self.args['num_train_games'] // self.args['group_size'], group_size=self.args['group_size'])
+                self.self_play(train_game_idx + iteration * (self.args['num_train_games'] // self.args['group_size']), group_size=self.args['group_size'])
             self.replayBuffer.build_trajectories()
 
             self.muZero.train()
