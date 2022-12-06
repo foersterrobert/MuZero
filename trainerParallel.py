@@ -24,16 +24,16 @@ class Trainer:
             observations = np.stack([self_play_game.observation for self_play_game in self_play_games])
             encoded_observations = self.game.get_encoded_observation(observations)
             canonical_observations = self.game.get_canonical_state(encoded_observations, player).copy()
+            
             hidden_state = torch.tensor(canonical_observations, dtype=torch.float32, device=self.device) 
-            hidden_state = self.muZero.represent(hidden_state) 
+            # hidden_state = self.muZero.represent(hidden_state) 
 
             action_probs, value = self.muZero.predict(hidden_state)
             action_probs = torch.softmax(action_probs, dim=1).cpu().numpy()
-            hidden_state = hidden_state.cpu().numpy()
 
             for i, self_play_game in enumerate(self_play_games):
                 self_play_game.root = Node(
-                    hidden_state[i],
+                    canonical_observations[i],
                     self_play_game.reward,
                     1, 0, self.muZero, self.args, self.game
                 )
@@ -54,7 +54,9 @@ class Trainer:
                     self_play_game.node = node
 
                 hidden_states = np.stack([self_play_game.node.state for self_play_game in self_play_games])
-                # player WRONG! canonical_hidden_states = self.game.get_canonical_state(hidden_states, self_play_games[0].node.player).copy()
+                canonical_hidden_states = self.game.get_canonical_state(
+                    hidden_states, [self_play_game.node.player for self_play_game in self_play_games]
+                ).copy()
                 canonical_hidden_states = torch.tensor(canonical_hidden_states, dtype=torch.float32, device=self.device)
                 action_probs, value = self.muZero.predict(canonical_hidden_states)
                 action_probs = torch.softmax(action_probs, dim=1).cpu().numpy()
@@ -69,10 +71,8 @@ class Trainer:
                         ).sum(axis=0)
 
                         if self.args['cheatTerminalState']:
-                            is_terminal, value_cheat = self.game.check_terminal_and_value(unencoded_state, self_play_game.node.action_taken)
-                            if is_terminal:
-                                value_cheat = self.game.get_opponent_value(value_cheat)
-                                my_value = value_cheat
+                            is_terminal, my_value = self.game.check_terminal_and_value(unencoded_state, self_play_game.node.action_taken)
+                            my_value = self.game.get_opponent_value(my_value)
 
                     if not self.args['cheatTerminalState'] or not is_terminal:
                         my_action_probs, my_value = action_probs[i], value[i]
@@ -107,9 +107,8 @@ class Trainer:
                 self_play_game.observation, self_play_game.valid_locations, self_play_game.reward, self_play_game.is_terminal = self.game.step(self_play_game.observation, action, player)
 
                 if self_play_game.is_terminal:
-                    return_memory = []
                     for hist_state, hist_action, hist_player, hist_action_probs, hist_reward, hist_terminal in self_play_game.game_memory:
-                        return_memory.append((
+                        self.replayBuffer.memory.append((
                             hist_state, 
                             hist_player,
                             hist_action, 
@@ -120,7 +119,7 @@ class Trainer:
                             hist_terminal, 
                         ))
                     if not self.args['cheatTerminalState']:
-                        return_memory.append((
+                        self.replayBuffer.memory.append((
                             self.game.get_canonical_state(self.game.get_encoded_observation(self_play_game.observation), self.game.get_opponent_player(player)).copy(),
                             self.game.get_opponent_player(player),
                             None,
@@ -130,7 +129,6 @@ class Trainer:
                             self_play_game.game_idx,
                             self_play_game.is_terminal,
                         ))
-                    self.replayBuffer.memory += return_memory
                     del self_play_games[i]
 
             player = self.game.get_opponent_player(player)
