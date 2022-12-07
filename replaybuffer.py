@@ -34,8 +34,8 @@ class ReplayBuffer:
                 else:
                     action_list.append(np.random.choice(self.game.action_size))
                     policy_list.append(policy_list[-1])
-                    value_list.append(-1 * value_list[-1])
-                    reward_list.append(-1 * reward_list[-1])
+                    value_list.append(self.game.get_oppent_value(1) * value_list[-1])
+                    reward_list.append(self.game.get_opponent_value(1) * reward_list[-1])
 
             policy_list = np.stack(policy_list)
             self.trajectories.append((observation, player, action_list, policy_list, value_list, reward_list))

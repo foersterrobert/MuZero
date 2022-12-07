@@ -64,7 +64,7 @@ class Trainer:
                         self.game.get_opponent_player(player),
                         None,
                         np.zeros(self.game.action_size, dtype=np.float32),
-                        -1 * reward,
+                        self.game.get_opponent_value(1) * reward, # also works for single player games
                         0,
                         game_idx,
                         is_terminal
