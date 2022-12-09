@@ -3,10 +3,9 @@ import numpy as np
 import math
 
 class Node:
-    def __init__(self, state, reward, player, prior, muZero, args, game, parent=None, action_taken=None):
+    def __init__(self, state, reward, prior, muZero, args, game, parent=None, action_taken=None):
         self.state = state
         self.reward = reward
-        self.player = player
         self.children = []
         self.parent = parent
         self.total_value = 0
@@ -20,9 +19,7 @@ class Node:
     @torch.no_grad()
     def expand(self, action_probs):
         actions = [a for a in range(self.game.action_size) if action_probs[a] > 0]
-        
         expand_state = self.state.copy()
-        expand_state = self.game.get_canonical_state(expand_state, self.player).copy()
         expand_state = expand_state.reshape(1, 3, 3, 3).repeat(len(actions), axis=0)
 
         if self.args['cheatDynamicsFunction']:
@@ -31,13 +28,12 @@ class Node:
             expand_state, reward = self.muZero.dynamics(
                 torch.tensor(expand_state, torch.float32, self.muZero.device), actions)
             expand_state = expand_state.detach().cpu().numpy()
-        expand_state = self.game.get_canonical_state(expand_state, self.player).copy()
+        expand_state = self.game.get_canonical_state(expand_state, -1).copy()
         
         for i, a in enumerate(actions):
             child = Node(
                 expand_state[i],
                 reward,
-                self.game.get_opponent_player(self.player),
                 action_probs[a],
                 self.muZero,
                 self.args,
@@ -94,7 +90,7 @@ class MCTS:
                 torch.tensor(hidden_state, dtype=torch.float32, device=self.muZero.device).unsqueeze(0)
             )
 
-        root = Node(hidden_state, reward, 1, 0, self.muZero, self.args, self.game)
+        root = Node(hidden_state, reward, 0, self.muZero, self.args, self.game)
 
         action_probs = torch.softmax(action_probs, dim=1).cpu().numpy().squeeze(0)
         action_probs = (1 - self.args['dirichlet_epsilon']) * action_probs + self.args['dirichlet_epsilon'] * np.random.dirichlet([self.args['dirichlet_alpha']] * self.game.action_size)
@@ -120,9 +116,8 @@ class MCTS:
                     value = self.game.get_opponent_value(value)
 
             if not self.args['cheatTerminalState'] or not is_terminal:
-                canonical_hidden_state = self.game.get_canonical_state(node.state, node.player).copy()
                 action_probs, value = self.muZero.predict(
-                    torch.tensor(canonical_hidden_state, dtype=torch.float32, device=self.muZero.device).unsqueeze(0)
+                    torch.tensor(node.state, dtype=torch.float32, device=self.muZero.device).unsqueeze(0)
                 )
                 action_probs = torch.softmax(action_probs, dim=1).cpu().numpy().squeeze(0)
                 value = value.item()

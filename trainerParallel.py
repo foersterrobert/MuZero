@@ -35,7 +35,7 @@ class Trainer:
                 self_play_game.root = Node(
                     canonical_observations[i],
                     self_play_game.reward,
-                    1, 0, self.muZero, self.args, self.game
+                    0, self.muZero, self.args, self.game
                 )
                 self_play_game_action_probs = action_probs[i]
                 self_play_game_action_probs = (1 - self.args['dirichlet_epsilon']) * self_play_game_action_probs + self.args['dirichlet_epsilon'] * np.random.dirichlet([self.args['dirichlet_alpha']] * self.game.action_size)
@@ -54,11 +54,9 @@ class Trainer:
                     self_play_game.node = node
 
                 hidden_states = np.stack([self_play_game.node.state for self_play_game in self_play_games])
-                canonical_hidden_states = self.game.get_canonical_state(
-                    hidden_states, [self_play_game.node.player for self_play_game in self_play_games]
-                ).copy()
-                canonical_hidden_states = torch.tensor(canonical_hidden_states, dtype=torch.float32, device=self.device)
-                action_probs, value = self.muZero.predict(canonical_hidden_states)
+                action_probs, value = self.muZero.predict(
+                    torch.tensor(hidden_states, dtype=torch.float32, device=self.device)
+                )
                 action_probs = torch.softmax(action_probs, dim=1).cpu().numpy()
                 value = value.cpu().numpy().squeeze(1)
 
@@ -110,7 +108,6 @@ class Trainer:
                     for hist_state, hist_action, hist_player, hist_action_probs, hist_reward, hist_terminal in self_play_game.game_memory:
                         self.replayBuffer.memory.append((
                             hist_state, 
-                            hist_player,
                             hist_action, 
                             hist_action_probs, 
                             self_play_game.reward * ((-1) ** (hist_player != player)),  # value
@@ -121,7 +118,6 @@ class Trainer:
                     if not self.args['cheatTerminalState']:
                         self.replayBuffer.memory.append((
                             self.game.get_canonical_state(self.game.get_encoded_observation(self_play_game.observation), self.game.get_opponent_player(player)).copy(),
-                            self.game.get_opponent_player(player),
                             None,
                             np.zeros(self.game.action_size, dtype=np.float32),
                             self.game.get_opponent_value(1) * self_play_game.reward, # also works for single player games
@@ -140,14 +136,15 @@ class Trainer:
             value_loss = 0
             # reward_loss = 0
 
-            observation, player, action, policy, value, reward = list(zip(*self.replayBuffer.trajectories[batchIdx:min(len(self.replayBuffer) -1, batchIdx + self.args['batch_size'])]))
+            observation, action, policy, value, reward = list(zip(*self.replayBuffer.trajectories[batchIdx:min(len(self.replayBuffer) -1, batchIdx + self.args['batch_size'])]))
             observation = np.stack(observation)
 
             state = torch.tensor(observation, dtype=torch.float32, device=self.device)
             policy = torch.tensor(np.stack(policy).swapaxes(0, 1), dtype=torch.float32, device=self.device)
             value = torch.tensor(np.array(value).swapaxes(0, 1).reshape(self.args['K'] + 1, -1, 1), dtype=torch.float32, device=self.device)
 
-            state = self.muZero.represent(state)
+            if not self.args['cheatRepresentationFunction']:
+                state = self.muZero.represent(state)
             out_policy, out_value = self.muZero.predict(state)
 
             policy_loss += F.cross_entropy(out_policy, policy[0]) 
@@ -155,15 +152,18 @@ class Trainer:
 
             if self.args['K'] > 0:
                 action = np.array(action).swapaxes(0, 1)
-                observation, out_reward = self.muZero.dynamics(observation, action[0])
-                observation = self.game.get_canonical_state(observation, player).copy()
 
+                if self.args['cheatDynamicsFunction']:
+                    observation, out_reward = self.muZero.dynamics(observation, action[0])
+
+                else:
+                    state, out_reward = self.muZero.dynamics(state, action[0])
+                    observation = state.detach().cpu().numpy()
+                
                 # reward_loss += F.mse_loss(out_reward, reward[0])
 
-                player = [self.game.get_opponent_player(p) for p in player]
-
                 for k in range(1, self.args['K'] + 1):
-                    observation = self.game.get_canonical_state(observation, player).copy()
+                    observation = self.game.get_canonical_state(observation, -1).copy()
                     state = torch.tensor(observation, dtype=torch.float32, device=self.device)
 
                     out_policy, out_value = self.muZero.predict(state)
@@ -171,12 +171,14 @@ class Trainer:
                     policy_loss += F.cross_entropy(out_policy, policy[k])
                     value_loss += F.mse_loss(out_value, value[k])
 
-                    observation, out_reward = self.muZero.dynamics(observation, action[k])
-                    observation = self.game.get_canonical_state(observation, player).copy()
+                    if self.args['cheatDynamicsFunction']:
+                        observation, out_reward = self.muZero.dynamics(observation, action[k])
+
+                    else:
+                        state, out_reward = self.muZero.dynamics(state, action[k])
+                        observation = state.detach().cpu().numpy()
 
                     # reward_loss += F.mse_loss(out_reward, reward[k])
-
-                    player = [self.game.get_opponent_player(p) for p in player]
 
             loss = value_loss * self.args['value_loss_weight'] + policy_loss #+ reward_loss
             loss /= self.args['K'] + 1

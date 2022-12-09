@@ -4,8 +4,8 @@ import numpy as np
 import random
 from games import TicTacToe
 from models import MuZero
-from trainer import Trainer
-# from trainerParallel import Trainer
+# from trainer import Trainer
+from trainerParallel import Trainer
 
 # In training: scale hidden state ([0, 1])
 # change ucb in mcts
@@ -34,9 +34,9 @@ if __name__ == '__main__':
     #     'discount': 0.997
     # }
     args = {
-        'num_iterations': 8,              # number of highest level iterations
+        'num_iterations': 8,             # number of highest level iterations
         'num_train_games': 500,           # number of self-play games to play within each iteration
-        'group_size': 500,                # group size for parallel training
+        'group_size': 100,                # group size for parallel training
         'num_mcts_runs': 60,              # number of mcts simulations when selecting a move within self-play
         'num_epochs': 4,                  # number of epochs for training on self-play data for each iteration
         'batch_size': 64,                 # batch size for training
@@ -64,6 +64,8 @@ if __name__ == '__main__':
         },
         'cheatAvailableActions': True,
         'cheatTerminalState': True,
+        'cheatDynamicsFunction': True,
+        'cheatRepresentationFunction': True,
     }
     game = TicTacToe()
     muZero = MuZero(game, args).to(device)
@@ -71,6 +73,5 @@ if __name__ == '__main__':
     if LOAD:
         muZero.load_state_dict(torch.load(f'Models/{game}/model.pt', map_location=device))
         optimizer.load_state_dict(torch.load(f'Models/{game}/optimizer.pt', map_location=device))
-
     trainer = Trainer(muZero, optimizer, game, args)
     trainer.run()
