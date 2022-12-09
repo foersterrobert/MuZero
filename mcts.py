@@ -24,7 +24,13 @@ class Node:
         expand_state = self.state.copy()
         expand_state = self.game.get_canonical_state(expand_state, self.player).copy()
         expand_state = expand_state.reshape(1, 3, 3, 3).repeat(len(actions), axis=0)
-        expand_state, reward = self.muZero.dynamics(expand_state, actions)
+
+        if self.args['cheatDynamicsFunction']:
+            expand_state, reward = self.muZero.dynamics(expand_state, actions)
+        else:
+            expand_state, reward = self.muZero.dynamics(
+                torch.tensor(expand_state, torch.float32, self.muZero.device), actions)
+            expand_state = expand_state.detach().cpu().numpy()
         expand_state = self.game.get_canonical_state(expand_state, self.player).copy()
         
         for i, a in enumerate(actions):
@@ -76,13 +82,20 @@ class MCTS:
         self.args = args
 
     @torch.no_grad()
-    def search(self, observation, reward, available_actions):
-        hidden_state = self.muZero.represent(observation)
+    def search(self, hidden_state, reward, available_actions):
+        if not self.args['cheatRepresentationFunction']:
+            hidden_state = torch.tensor(hidden_state, dtype=torch.float32, device=self.muZero.device).unsqueeze(0)
+            hidden_state = self.muZero.represent(hidden_state)
+            action_probs, value = self.muZero.predict(hidden_state)
+            hidden_state = hidden_state.cpu().numpy().squeeze(0)
+        
+        else:
+            action_probs, value = self.muZero.predict(
+                torch.tensor(hidden_state, dtype=torch.float32, device=self.muZero.device).unsqueeze(0)
+            )
+
         root = Node(hidden_state, reward, 1, 0, self.muZero, self.args, self.game)
 
-        action_probs, value = self.muZero.predict(
-            torch.tensor(hidden_state, dtype=torch.float32, device=self.muZero.device).unsqueeze(0)
-        )
         action_probs = torch.softmax(action_probs, dim=1).cpu().numpy().squeeze(0)
         action_probs = (1 - self.args['dirichlet_epsilon']) * action_probs + self.args['dirichlet_epsilon'] * np.random.dirichlet([self.args['dirichlet_alpha']] * self.game.action_size)
         action_probs *= available_actions

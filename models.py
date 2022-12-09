@@ -7,17 +7,23 @@ class MuZero(nn.Module):
     def __init__(self, game, args):
         super().__init__()
         self.game = game
+        self.args = args
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # self.dynamicsFunction = DynamicsFunction(**args['dynamicsFunction'])
-        self.predictionFunction = PredictionFunction(self.game, **args['predictionFunction'])
-        # self.representationFunction = RepresentationFunction(**args['representationFunction'])
+        self.predictionFunction = PredictionFunction(self.game, **self.args['predictionFunction'])
+
+        if self.args['cheatDynamicsFunction'] == False:
+            self.dynamicsFunction = DynamicsFunction(**self.args['dynamicsFunction'])
+        
+        if self.args['cheatRepresentationFunction'] == False:
+            self.representationFunction = RepresentationFunction(**self.args['representationFunction'])
 
     def predict(self, hidden_state):
         return self.predictionFunction(hidden_state)
 
     def represent(self, observation):
-        return observation
-        # return self.representationFunction(observation)
+        if self.args['cheatRepresentationFunction'] == True:
+            return observation
+        return self.representationFunction(observation)
 
     def dynamics(self, hidden_state, action):
         if len(hidden_state.shape) == 4:
@@ -26,23 +32,25 @@ class MuZero(nn.Module):
         else:
             row = action // 3
             col = action % 3
-            if (hidden_state[1, row, col] == 1
-                and np.max(np.sum(hidden_state[0], axis=0)) < 3 
-                and np.max(np.sum(hidden_state[0], axis=1)) < 3
-                and np.sum(np.diag(hidden_state[0])) < 3
-                and np.sum(np.diag(np.fliplr(hidden_state[0]))) < 3
-                and np.max(np.sum(hidden_state[2], axis=0)) < 3
-                and np.max(np.sum(hidden_state[2], axis=1)) < 3
-                and np.sum(np.diag(hidden_state[2])) < 3
-                and np.sum(np.diag(np.fliplr(hidden_state[2]))) < 3
-            ):
-                hidden_state[1, row, col] = 0
-                hidden_state[2, row, col] = 1
+            if self.args['cheatDynamicsFunction'] == True:
+                if (hidden_state[1, row, col] == 1
+                    and np.max(np.sum(hidden_state[0], axis=0)) < 3 
+                    and np.max(np.sum(hidden_state[0], axis=1)) < 3
+                    and np.sum(np.diag(hidden_state[0])) < 3
+                    and np.sum(np.diag(np.fliplr(hidden_state[0]))) < 3
+                    and np.max(np.sum(hidden_state[2], axis=0)) < 3
+                    and np.max(np.sum(hidden_state[2], axis=1)) < 3
+                    and np.sum(np.diag(hidden_state[2])) < 3
+                    and np.sum(np.diag(np.fliplr(hidden_state[2]))) < 3
+                ):
+                    hidden_state[1, row, col] = 0
+                    hidden_state[2, row, col] = 1
+            else:
+                action = torch.zeros((1, 1, 3, 3)).to(self.device)
+                action[0, 0, row, col] = 1
+                x = torch.cat((hidden_state, action), dim=1)
+                return self.dynamicsFunction(x)
         return hidden_state, 0
-        # action = torch.zeros((1, 1, 3, 3)).to(self.device)
-        # action[0, 0, row, col] = 1
-        # x = torch.cat((hidden_state, action), dim=1)
-        # return self.dynamicsFunction(x)
 
 # Creates hidden state + reward based on old hidden state and action 
 class DynamicsFunction(nn.Module):
