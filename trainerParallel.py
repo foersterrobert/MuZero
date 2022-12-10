@@ -16,8 +16,8 @@ class Trainer:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     @torch.no_grad()
-    def self_play(self, game_idx_group, group_size=100):
-        self_play_games = [SelfPlayGame(self.game, game_idx_group * group_size + i) for i in range(group_size)]
+    def self_play(self, game_idx_group):
+        self_play_games = [SelfPlayGame(self.game, game_idx_group * self.args['group_size'] + i) for i in range(self.args['group_size'])]
         player = 1
 
         while len(self_play_games) > 0:
@@ -37,12 +37,13 @@ class Trainer:
                     self_play_game.reward,
                     0, self.muZero, self.args, self.game
                 )
-                self_play_game_action_probs = action_probs[i]
-                self_play_game_action_probs = (1 - self.args['dirichlet_epsilon']) * self_play_game_action_probs + self.args['dirichlet_epsilon'] * np.random.dirichlet([self.args['dirichlet_alpha']] * self.game.action_size)
-                self_play_game_action_probs *= self_play_game.valid_locations
-                self_play_game_action_probs /= np.sum(self_play_game_action_probs)
 
-                self_play_game.root.expand(self_play_game_action_probs)
+                my_action_probs = action_probs[i]
+                my_action_probs = (1 - self.args['dirichlet_epsilon']) * my_action_probs + self.args['dirichlet_epsilon'] * np.random.dirichlet([self.args['dirichlet_alpha']] * self.game.action_size)
+                my_action_probs *= self_play_game.valid_locations
+                my_action_probs /= np.sum(my_action_probs)
+
+                self_play_game.root.expand(my_action_probs)
 
             for simulation in range(self.args['num_mcts_runs']):
                 for self_play_game in self_play_games:
@@ -194,7 +195,7 @@ class Trainer:
 
             self.muZero.eval()
             for train_game_idx in trange(self.args['num_train_games'] // self.args['group_size'], desc="train_game"):
-                self.self_play(train_game_idx + iteration * (self.args['num_train_games'] // self.args['group_size']), group_size=self.args['group_size'])
+                self.self_play(train_game_idx + iteration * (self.args['num_train_games'] // self.args['group_size']))
             self.replayBuffer.build_trajectories()
 
             self.muZero.train()
@@ -206,9 +207,8 @@ class Trainer:
 
 class SelfPlayGame:
     def __init__(self, game, game_idx):
-        self.game = game
         self.game_idx = game_idx
         self.game_memory = []
-        self.observation, self.valid_locations, self.reward, self.is_terminal = self.game.get_initial_state()
+        self.observation, self.valid_locations, self.reward, self.is_terminal = game.get_initial_state()
         self.root = None
         self.node = None
