@@ -43,14 +43,8 @@ class TicTacToe:
         return (observation.reshape(-1) == 0).astype(np.uint8)
 
     def get_canonical_state(self, hidden_state, player):
-        # recursive if there are multiple players
-        if type(player) == list:
-            for i in range(hidden_state.shape[0]):
-                hidden_state[i] = self.get_canonical_state(hidden_state[i], player[i])
-        else:
-            hidden_state = hidden_state if player == 1 else np.flip(hidden_state, axis=int(len(hidden_state.shape) == 4))
+        return hidden_state if player == 1 else np.flip(hidden_state, axis=int(len(hidden_state.shape) == 4))
 
-        return hidden_state
 
     def get_encoded_observation(self, observation):
         if len(observation.shape) == 3:
