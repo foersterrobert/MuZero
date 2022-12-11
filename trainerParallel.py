@@ -26,7 +26,9 @@ class Trainer:
             canonical_observations = self.game.get_canonical_state(encoded_observations, player).copy()
             
             hidden_state = torch.tensor(canonical_observations, dtype=torch.float32, device=self.device) 
-            # hidden_state = self.muZero.represent(hidden_state) 
+
+            if not self.args['cheatRepresentationFunction']:
+                hidden_state = self.muZero.represent(hidden_state) 
 
             action_probs, value = self.muZero.predict(hidden_state)
             action_probs = torch.softmax(action_probs, dim=1).cpu().numpy()
