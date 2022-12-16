@@ -2,3 +2,4 @@ torch==1.13
 kaggle-environments==1.9.11
 numpy==1.23.2
 tqdm==4.64.0
+gymnasium==0.27.0
