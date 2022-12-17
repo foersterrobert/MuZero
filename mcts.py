@@ -20,7 +20,7 @@ class Node:
     def expand(self, action_probs):
         actions = [a for a in range(self.game.action_size) if action_probs[a] > 0]
         expand_state = self.state.copy()
-        expand_state = expand_state.reshape(1, 3, 3, 3).repeat(len(actions), axis=0)
+        expand_state = np.expand_dims(expand_state, axis=0).repeat(len(actions), axis=0)
 
         if self.args['cheatDynamicsFunction']:
             expand_state, reward = self.muZero.dynamics(expand_state, actions)
