@@ -46,9 +46,9 @@ class MuZero(nn.Module):
                     hidden_state[1, row, col] = 0
                     hidden_state[2, row, col] = 1
             else:
-                action = torch.zeros((1, 1, 3, 3)).to(self.device)
-                action[0, 0, row, col] = 1
-                x = torch.cat((hidden_state, action), dim=1)
+                action = torch.zeros((1, 3, 3)).to(self.device)
+                action[0, row, col] = 1
+                x = torch.cat((hidden_state, action), dim=0).unsqueeze(0)
                 return self.dynamicsFunction(x)
         return hidden_state, 0
 

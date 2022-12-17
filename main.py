@@ -34,14 +34,14 @@ if __name__ == '__main__':
     #     'discount': 0.997
     # }
     args = {
-        'num_iterations': 8,             # number of highest level iterations
+        'num_iterations': 20,             # number of highest level iterations
         'num_train_games': 500,           # number of self-play games to play within each iteration
         'group_size': 100,                # group size for parallel training
         'num_mcts_runs': 60,              # number of mcts simulations when selecting a move within self-play
         'num_epochs': 4,                  # number of epochs for training on self-play data for each iteration
         'batch_size': 64,                 # batch size for training
         'temperature': 1,                 # temperature for the softmax selection of moves
-        'K': 0, # Cheat!                  # unroll K steps of the dynamics function when training
+        'K': 2,                           # unroll K steps of the dynamics function when training | Set to 0 when cheating
         'c': 2,                           # the value of the constant policy
         'c1': 1.25,                       # the value of the constant policy
         'c2': 19652,                      # the value of the constant policy
@@ -59,13 +59,13 @@ if __name__ == '__main__':
             'hidden_planes': 128
         },
         'representationFunction': {
-            'num_resBlocks': 4,
-            'hidden_planes': 128
+            'num_resBlocks': 3,
+            'hidden_planes': 64
         },
-        'cheatAvailableActions': True,
-        'cheatTerminalState': True,
-        'cheatDynamicsFunction': True,
-        'cheatRepresentationFunction': True,
+        'cheatAvailableActions': False,
+        'cheatTerminalState': False,
+        'cheatDynamicsFunction': False,
+        'cheatRepresentationFunction': False,
     }
     game = TicTacToe()
     muZero = MuZero(game, args).to(device)

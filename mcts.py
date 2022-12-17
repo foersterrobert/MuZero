@@ -26,7 +26,7 @@ class Node:
             expand_state, reward = self.muZero.dynamics(expand_state, actions)
         else:
             expand_state, reward = self.muZero.dynamics(
-                torch.tensor(expand_state, torch.float32, self.muZero.device), actions)
+                torch.tensor(expand_state, dtype=torch.float32, device=self.muZero.device), actions)
             expand_state = expand_state.detach().cpu().numpy()
         expand_state = self.game.get_canonical_state(expand_state, -1).copy()
         
