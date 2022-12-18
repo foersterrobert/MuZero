@@ -26,13 +26,13 @@ class MuZero(nn.Module):
         return self.representationFunction(observation)
 
     def dynamics(self, hidden_state, action):
-        if len(hidden_state.shape) == 4:
-            for i in range(hidden_state.shape[0]):
-                hidden_state[i], _ = self.dynamics(hidden_state[i], action[i])
-        else:
-            row = action // 3
-            col = action % 3
-            if self.args['cheatDynamicsFunction'] == True:
+        if self.args['cheatDynamicsFunction'] == True:
+            if len(hidden_state.shape) == 4:
+                for i in range(hidden_state.shape[0]):
+                    hidden_state[i], _ = self.dynamics(hidden_state[i], action[i])
+            else:
+                row = action // 3
+                col = action % 3
                 if (hidden_state[1, row, col] == 1
                     and np.max(np.sum(hidden_state[0], axis=0)) < 3 
                     and np.max(np.sum(hidden_state[0], axis=1)) < 3
@@ -45,11 +45,14 @@ class MuZero(nn.Module):
                 ):
                     hidden_state[1, row, col] = 0
                     hidden_state[2, row, col] = 1
-            else:
-                action = torch.zeros((1, 3, 3)).to(self.device)
-                action[0, row, col] = 1
-                x = torch.cat((hidden_state, action), dim=0).unsqueeze(0)
-                return self.dynamicsFunction(x)
+        else:
+            actionT = torch.zeros((hidden_state.shape[0], 1, 3, 3)).to(self.device)
+            for i in range(hidden_state.shape[0]):
+                row = action[i] // 3
+                col = action[i] % 3
+                actionT[i, 0, row, col] = 1
+            x = torch.cat((hidden_state, actionT), dim=1)
+            hidden_state, _ = self.dynamicsFunction(x)
         return hidden_state, 0
 
 # Creates hidden state + reward based on old hidden state and action 
