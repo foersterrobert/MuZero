@@ -1,12 +1,16 @@
 import torch
 import numpy as np
+import gymnasium as gym
+from mcts import MCTS
 from kaggle_environments import make, evaluate
 
 class KaggleAgent:
-    def __init__(self, model, game, temperature=0):
+    def __init__(self, model, game, args):
         self.model = model
         self.game = game
-        self.temperature = temperature
+        self.args = args
+        if self.args['search']:
+            self.mcts = MCTS(self.model, self.game, self.args)
 
     def run(self, obs, conf):
         player = obs['mark'] if obs['mark'] == 1 else -1
@@ -18,15 +22,27 @@ class KaggleAgent:
         canonical_observation = self.game.get_canonical_state(encoded_observation, player).copy()
 
         with torch.no_grad():
-            canonical_observation = torch.tensor(canonical_observation, dtype=torch.float32, device=self.model.device)
-            policy, _ = self.model.predict(canonical_observation.unsqueeze(0))
-            policy = torch.softmax(policy, dim=1).squeeze(0).cpu().numpy()
-            policy *= valid_moves
-            policy /= np.sum(policy)
+            if self.args['search']:
+                root = self.mcts.search(canonical_observation)
 
-        if self.temperature == 0:
+                policy = [0] * self.game.action_size
+                for child in root.children:
+                    policy[child.action_taken] = child.visit_count
+
+            else:
+                hidden_state = torch.tensor(hidden_state, dtype=torch.float32, device=self.model.device).unsqueeze(0)
+                hidden_state = self.model.represent(hidden_state)
+
+                policy, _ = self.model.predict(hidden_state)
+                policy = torch.softmax(policy, dim=1).squeeze(0).cpu().numpy()
+
+        policy *= valid_moves
+        policy /= np.sum(policy)
+
+        if self.args['temperature'] == 0:
             action = int(np.argmax(policy))
-
+        elif self.args['temperature'] == float('inf'):
+            action = np.random.choice([r for r in range(self.game.action_size) if policy[r] > 0])
         else:
             policy = policy ** (1 / self.temperature)
             policy /= np.sum(policy)
@@ -34,7 +50,44 @@ class KaggleAgent:
 
         return action
 
-def test(players, num_iterations=1, gameName="tictactoe"):
+class GymAgent:
+    def __init__(self, model, game, args):
+        self.model = model
+        self.game = game
+        self.args = args
+        if self.args['search']:
+            self.mcts = MCTS(self.model, self.game, self.args)
+
+    @torch.no_grad()
+    def predict(self, observation):
+        encoded_observation = self.game.get_encoded_observation(observation)
+
+        if self.args['search']:
+            root = self.mcts.search(encoded_observation)
+
+            policy = [0] * self.game.action_size
+            for child in root.children:
+                policy[child.action_taken] = child.visit_count
+
+        else:
+            policy, _ = self.model.predict(encoded_observation, augment=self.args['augment'])
+
+        valid_moves = self.game.get_valid_locations(observation)
+        policy *= valid_moves
+        policy /= np.sum(policy)
+
+        if self.args['temperature'] == 0:
+            action = int(np.argmax(policy))
+        elif self.args['temperature'] == float('inf'):
+            action = np.random.choice([r for r in range(self.game.action_size) if policy[r] > 0])
+        else:
+            policy = policy ** (1 / self.temperature)
+            policy /= np.sum(policy)
+            action = np.random.choice(self.game.action_size, p=policy)
+
+        return action
+
+def evaluateKaggle(players, num_iterations=1, gameName="tictactoe"):
     if num_iterations == 1:
         env = make(gameName, debug=True)
         env.run(players)
@@ -45,3 +98,19 @@ def test(players, num_iterations=1, gameName="tictactoe"):
 Player 1 | Wins: {np.sum(results == 1)} | Draws: {np.sum(results == 0)} | Losses: {np.sum(results == -1)}
 Player 2 | Wins: {np.sum(results == -1)} | Draws: {np.sum(results == 0)} | Losses: {np.sum(results == 1)}
     """)
+
+def evaluateGym(agent, gameName, num_iterations=1):
+    if num_iterations == 1:
+        env = gym.make(gameName, render_mode="human")
+    
+    else:
+        env = gym.make(gameName)
+    
+    for i in range(num_iterations):
+        observation, info = env.reset()
+        while True:
+            action = agent.predict(observation)
+            observation, reward, done, info = env.step(action)
+
+            if done:
+                break
