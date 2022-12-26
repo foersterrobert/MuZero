@@ -82,23 +82,23 @@ class Trainer:
             observation = np.stack(observation)
 
             state = torch.tensor(observation, dtype=torch.float32, device=self.device)
-            action = np.array(action).swapaxes(0, 1)
-            policy = torch.tensor(np.stack(policy).swapaxes(0, 1), dtype=torch.float32, device=self.device)
-            value = torch.tensor(np.expand_dims(np.array(value).swapaxes(0, 1), axis=-1), dtype=torch.float32, device=self.device)
+            action = np.array(action)
+            policy = torch.tensor(np.stack(policy), dtype=torch.float32, device=self.device)
+            value = torch.tensor(np.expand_dims(np.array(value), axis=-1), dtype=torch.float32, device=self.device)
 
             if not self.args['cheatRepresentationFunction']:
                 state = self.muZero.represent(state)
             out_policy, out_value = self.muZero.predict(state)
 
-            policy_loss += F.cross_entropy(out_policy, policy[0]) 
-            value_loss += F.mse_loss(out_value, value[0])
+            policy_loss += F.cross_entropy(out_policy, policy[:, 0]) 
+            value_loss += F.mse_loss(out_value, value[:, 0])
 
             if self.args['K'] > 0:
                 for k in range(1, self.args['K'] + 1):
                     if self.args['cheatDynamicsFunction']:
-                        observation, out_reward = self.muZero.dynamics(observation, action[k - 1])
+                        observation, out_reward = self.muZero.dynamics(observation, action[:, k - 1])
                     else:
-                        state, out_reward = self.muZero.dynamics(state, action[k - 1])
+                        state, out_reward = self.muZero.dynamics(state, action[:, k - 1])
                         observation = state.detach().cpu().numpy()
                 
                     # reward_loss += F.mse_loss(out_reward, reward[k])
@@ -108,8 +108,8 @@ class Trainer:
 
                     out_policy, out_value = self.muZero.predict(state)
 
-                    policy_loss += F.cross_entropy(out_policy, policy[k])
-                    value_loss += F.mse_loss(out_value, value[k])
+                    policy_loss += F.cross_entropy(out_policy, policy[:, k])
+                    value_loss += F.mse_loss(out_value, value[:, k])
 
             loss = value_loss * self.args['value_loss_weight'] + policy_loss #+ reward_loss
             loss /= self.args['K'] + 1
