@@ -23,11 +23,12 @@ class KaggleAgent:
 
         with torch.no_grad():
             if self.args['search']:
-                root = self.mcts.search(canonical_observation)
+                root = self.mcts.search(canonical_observation, 0, valid_moves)
 
                 policy = [0] * self.game.action_size
                 for child in root.children:
                     policy[child.action_taken] = child.visit_count
+                policy /= np.sum(policy)
 
             else:
                 hidden_state = torch.tensor(hidden_state, dtype=torch.float32, device=self.model.device).unsqueeze(0)
@@ -44,7 +45,7 @@ class KaggleAgent:
         elif self.args['temperature'] == float('inf'):
             action = np.random.choice([r for r in range(self.game.action_size) if policy[r] > 0])
         else:
-            policy = policy ** (1 / self.temperature)
+            policy = policy ** (1 / self.args['temperature'])
             policy /= np.sum(policy)
             action = np.random.choice(self.game.action_size, p=policy)
 
@@ -68,6 +69,7 @@ class GymAgent:
             policy = [0] * self.game.action_size
             for child in root.children:
                 policy[child.action_taken] = child.visit_count
+            policy /= np.sum(policy)
 
         else:
             policy, _ = self.model.predict(encoded_observation, augment=self.args['augment'])
@@ -81,17 +83,17 @@ class GymAgent:
         elif self.args['temperature'] == float('inf'):
             action = np.random.choice([r for r in range(self.game.action_size) if policy[r] > 0])
         else:
-            policy = policy ** (1 / self.temperature)
+            policy = policy ** (1 / self.args['temperature'])
             policy /= np.sum(policy)
             action = np.random.choice(self.game.action_size, p=policy)
 
         return action
 
-def evaluateKaggle(players, num_iterations=1, gameName="tictactoe"):
+def evaluateKaggle(gameName, players, num_iterations=1):
     if num_iterations == 1:
         env = make(gameName, debug=True)
         env.run(players)
-        return env.render(mode=gameName)
+        return env.render(mode="ipython")
 
     results = np.array(evaluate(gameName, players, num_episodes=num_iterations))[:, 0]
     print(f"""
@@ -99,18 +101,25 @@ Player 1 | Wins: {np.sum(results == 1)} | Draws: {np.sum(results == 0)} | Losses
 Player 2 | Wins: {np.sum(results == -1)} | Draws: {np.sum(results == 0)} | Losses: {np.sum(results == 1)}
     """)
 
-def evaluateGym(agent, gameName, num_iterations=1):
+def evaluateGym(gameName, agent, num_iterations=1):
     if num_iterations == 1:
         env = gym.make(gameName, render_mode="human")
-    
     else:
         env = gym.make(gameName)
     
+    results = []
     for i in range(num_iterations):
+        counter = 0
         observation, info = env.reset()
         while True:
             action = agent.predict(observation)
             observation, reward, done, info = env.step(action)
 
             if done:
+                results.append(counter)
                 break
+            counter += 1
+    
+    print(f"""
+Average number of moves: {sum(results) / len(results)}
+    """)
