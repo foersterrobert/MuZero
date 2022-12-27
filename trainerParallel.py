@@ -37,7 +37,8 @@ class Trainer:
                 self_play_game.root = Node(
                     canonical_observations[i],
                     self_play_game.reward,
-                    0, self.muZero, self.args, self.game
+                    0, self.muZero, self.args, self.game,
+                    visit_count=1,
                 )
 
                 my_action_probs = action_probs[i]

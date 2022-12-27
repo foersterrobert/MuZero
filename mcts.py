@@ -3,13 +3,13 @@ import numpy as np
 import math
 
 class Node:
-    def __init__(self, state, reward, prior, muZero, args, game, parent=None, action_taken=None):
+    def __init__(self, state, reward, prior, muZero, args, game, parent=None, action_taken=None, visit_count=0):
         self.state = state
         self.reward = reward
         self.children = []
         self.parent = parent
         self.total_value = 0
-        self.visit_count = 0
+        self.visit_count = visit_count
         self.prior = prior
         self.muZero = muZero
         self.action_taken = action_taken
@@ -90,7 +90,7 @@ class MCTS:
                 torch.tensor(hidden_state, dtype=torch.float32, device=self.muZero.device).unsqueeze(0)
             )
 
-        root = Node(hidden_state, reward, 0, self.muZero, self.args, self.game)
+        root = Node(hidden_state, reward, 0, self.muZero, self.args, self.game, visit_count=1)
 
         action_probs = torch.softmax(action_probs, dim=1).cpu().numpy().squeeze(0)
         action_probs = (1 - self.args['dirichlet_epsilon']) * action_probs + self.args['dirichlet_epsilon'] * np.random.dirichlet([self.args['dirichlet_alpha']] * self.game.action_size)
