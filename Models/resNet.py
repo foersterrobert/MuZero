@@ -3,19 +3,20 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-class MuZero(nn.Module):
-    def __init__(self, game, args):
+class MuZeroResNet(nn.Module):
+    def __init__(self, args):
         super().__init__()
-        self.game = game
         self.args = args
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.predictionFunction = PredictionFunction(self.game, **self.args['predictionFunction'])
+        self.predictionFunction = PredictionFunctionResNet(**self.args['predictionFunction'])
 
         if self.args['cheatDynamicsFunction'] == False:
-            self.dynamicsFunction = DynamicsFunction(**self.args['dynamicsFunction'])
+            self.dynamicsFunction = DynamicsFunctionResNet(**self.args['dynamicsFunction'])
         
         if self.args['cheatRepresentationFunction'] == False:
-            self.representationFunction = RepresentationFunction(**self.args['representationFunction'])
+            self.representationFunction = RepresentationFunctionResNet(**self.args['representationFunction'])
+
+    def __repr__(self):
+        return "ResNet"
 
     def predict(self, hidden_state):
         return self.predictionFunction(hidden_state)
@@ -46,7 +47,7 @@ class MuZero(nn.Module):
                     hidden_state[1, row, col] = 0
                     hidden_state[2, row, col] = 1
         else:
-            actionT = torch.zeros((hidden_state.shape[0], 1, 3, 3)).to(self.device)
+            actionT = torch.zeros((hidden_state.shape[0], 1, 3, 3)).to(hidden_state.device)
             for i in range(hidden_state.shape[0]):
                 row = action[i] // 3
                 col = action[i] % 3
@@ -56,9 +57,10 @@ class MuZero(nn.Module):
         return hidden_state, 0
 
 # Creates hidden state + reward based on old hidden state and action 
-class DynamicsFunction(nn.Module):
-    def __init__(self, num_resBlocks=16, hidden_planes=256):
+class DynamicsFunctionResNet(nn.Module):
+    def __init__(self, num_resBlocks=16, hidden_planes=256, predict_reward=True, reward_support_size=1):
         super().__init__()
+        self.predict_reward = predict_reward
         
         self.startBlock = nn.Sequential(
             nn.Conv2d(4, hidden_planes, kernel_size=3, stride=1, padding=1),
@@ -70,25 +72,28 @@ class DynamicsFunction(nn.Module):
             nn.Conv2d(hidden_planes, 3, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(3),
         )
-        self.rewardBlock = nn.Sequential(
-            nn.Conv2d(3, 1, kernel_size=1, stride=1, padding=0),
-            nn.Flatten(),
-            nn.Linear(9, 1)
-        )
+
+        if self.predict_reward:
+            self.rewardBlock = nn.Sequential(
+                nn.Conv2d(3, 1, kernel_size=1, stride=1, padding=0),
+                nn.Flatten(),
+                nn.Linear(9, reward_support_size)
+            )
 
     def forward(self, x):
         x = self.startBlock(x)
         for block in self.resBlocks:
             x = block(x)
         x = self.endBlock(x)
-        reward = self.rewardBlock(x)
-        return x, reward
+        if self.predict_reward:
+            reward = self.rewardBlock(x)
+            return x, reward
+        return x, 0
     
 # Creates policy and value based on hidden state
-class PredictionFunction(nn.Module):
-    def __init__(self, game, num_resBlocks=20, hidden_planes=256):
+class PredictionFunctionResNet(nn.Module):
+    def __init__(self, num_resBlocks=20, hidden_planes=256, screen_size=9, action_size=9, value_support_size=1, value_activation='tanh'):
         super().__init__()
-        self.game = game
         
         self.startBlock = nn.Sequential(
             nn.Conv2d(3, hidden_planes, kernel_size=3, stride=1, padding=1),
@@ -102,18 +107,19 @@ class PredictionFunction(nn.Module):
             nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(32 * self.game.row_count * self.game.column_count, self.game.action_size)
+            nn.Linear(32 * screen_size, action_size)
         )
         self.value_head = nn.Sequential(
             nn.Conv2d(hidden_planes, 3, kernel_size=1, stride=1, padding=0),
             nn.BatchNorm2d(3),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(3 * self.game.row_count * self.game.column_count, 32),
+            nn.Linear(3 * screen_size, 32),
             nn.ReLU(),
-            nn.Linear(32, 1),
-            nn.Tanh()
+            nn.Linear(32, value_support_size),
         )
+        if value_activation == 'tanh':
+            self.value_head.add_module('tanh', nn.Tanh())
 
     def forward(self, x):
         x = self.startBlock(x)
@@ -124,7 +130,7 @@ class PredictionFunction(nn.Module):
         return p, v
 
 # Creates initial hidden state based on observation | several observations
-class RepresentationFunction(nn.Module):
+class RepresentationFunctionResNet(nn.Module):
     def __init__(self, num_resBlocks=16, hidden_planes=256):
         super().__init__()
         

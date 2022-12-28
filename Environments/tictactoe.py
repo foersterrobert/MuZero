@@ -1,5 +1,33 @@
+import torch
 import numpy as np
-import gymnasium as gym
+from . import MuZeroConfigBasic
+from ..Models.resNet import MuZeroResNet
+
+class MuZeroConfigTicTacToe(MuZeroConfigBasic):
+    def __init__(self):
+        super().__init__(
+            device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+            num_iterations=100,
+            num_train_games=100,
+            group_size=100,
+            num_mcts_runs=100,
+            num_epochs=100,
+            batch_size=100,
+            temperature=100,
+            K=100,
+            N=100,
+            c_init=100,
+            c_base=100,
+            gamma=0.997,
+            value_support=None,
+            reward_support=None,
+        )
+        self.game = TicTacToe()
+        self.model = MuZeroResNet({
+            'predictionFunction': {},
+            'dynamicsFunction': {},
+            'representationFunction': {},
+        })
 
 class TicTacToe:
     def __init__(self):
@@ -73,32 +101,3 @@ class TicTacToe:
 
     def get_opponent_value(self, value):
         return value * -1
-
-class CartPole:
-    def __init__(self):
-        self.env = gym.make('CartPole-v0')
-        self.action_size = self.env.action_space.n
-
-    def __repr__(self):
-        return 'CartPole'
-
-    def get_initial_state(self):
-        observation = self.env.reset()
-        valid_locations = self.get_valid_locations(observation)
-        reward = 0
-        is_terminal = False
-        return observation, valid_locations, reward, is_terminal
-
-    def step(self, action):
-        observation, reward, is_terminal, _, _ = self.env.step(action)
-        valid_locations = self.get_valid_locations(observation)
-        return observation, valid_locations, reward, is_terminal
-
-    def get_valid_locations(self, observation):
-        return self.action_size
-
-    def get_canonical_state(self, hidden_state, player):
-        return hidden_state
-
-    def get_encoded_observation(self, observation):
-        return observation    

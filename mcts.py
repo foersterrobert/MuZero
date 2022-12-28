@@ -2,6 +2,20 @@ import torch
 import numpy as np
 import math
 
+class MinMaxStats:
+    def __init__(self, known_bounds):
+        self.maximum = known_bounds['max'] if known_bounds else -float('inf')
+        self.minimum = known_bounds['min'] if known_bounds else float('inf')
+
+    def update(self, value):
+        self.maximum = max(self.maximum, value)
+        self.minimum = min(self.minimum, value)
+
+    def normalize(self, value):
+        if self.maximum > self.minimum:
+            return (value - self.minimum) / (self.maximum - self.minimum)
+        return value
+
 class Node:
     def __init__(self, state, reward, prior, muZero, args, game, parent=None, action_taken=None, visit_count=0):
         self.state = state

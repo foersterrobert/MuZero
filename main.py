@@ -2,8 +2,8 @@ import torch
 from torch.optim import Adam
 import numpy as np
 import random
-from games import TicTacToe
-from models import MuZero
+from Environments.tictactoe import TicTacToe
+from Models.resNet import MuZeroResNet
 # from trainer import Trainer
 from trainerParallel import Trainer
 
@@ -68,7 +68,7 @@ if __name__ == '__main__':
         'cheatRepresentationFunction': False,
     }
     game = TicTacToe()
-    muZero = MuZero(game, args).to(device)
+    muZero = MuZeroResNet(game, args).to(device)
     optimizer = Adam(muZero.parameters(), lr=0.001, weight_decay=0.0001)
     if LOAD:
         muZero.load_state_dict(torch.load(f'Models/{game}/model.pt', map_location=device))
