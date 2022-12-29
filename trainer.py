@@ -132,5 +132,5 @@ class Trainer:
             for epoch in trange(self.args['num_epochs'], desc="epochs"):
                 self.train()
 
-            torch.save(self.muZero.state_dict(), f"Models/{self.game}/model_{iteration}.pt")
-            torch.save(self.optimizer.state_dict(), f"Models/{self.game}/optimizer_{iteration}.pt")
+            torch.save(self.muZero.state_dict(), f"Weights/{self.game}/model_{iteration}.pt")
+            torch.save(self.optimizer.state_dict(), f"Weights/{self.game}/optimizer_{iteration}.pt")
