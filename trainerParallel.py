@@ -34,9 +34,12 @@ class Trainer:
             action_probs = torch.softmax(action_probs, dim=1).cpu().numpy()
             action_probs = (1 - self.args['dirichlet_epsilon']) * action_probs + self.args['dirichlet_epsilon'] * np.random.dirichlet([self.args['dirichlet_alpha']] * self.game.action_size, size=action_probs.shape[0])
 
+            hidden_state = hidden_state.cpu().numpy()
+
             for i, self_play_game in enumerate(self_play_games):
+                self_play_game.canonical_observation_root = canonical_observations[i]
                 self_play_game.root = Node(
-                    canonical_observations[i],
+                    hidden_state[i], # should be hidden_state[i] if not cheating
                     self_play_game.reward,
                     0, self.muZero, self.args, self.game,
                     visit_count=1,
@@ -104,7 +107,7 @@ class Trainer:
                     temperature_action_probs /= np.sum(temperature_action_probs)
                     action = np.random.choice(len(temperature_action_probs), p=temperature_action_probs)
 
-                self_play_game.game_memory.append((self_play_game.root.state, action, player, action_probs, self_play_game.reward, self_play_game.is_terminal))
+                self_play_game.game_memory.append((self_play_game.canonical_observation_root, action, player, action_probs, self_play_game.reward, self_play_game.is_terminal))
 
                 self_play_game.observation, self_play_game.valid_locations, self_play_game.reward, self_play_game.is_terminal = self.game.step(self_play_game.observation, action, player)
 
@@ -204,3 +207,4 @@ class SelfPlayGame:
         self.observation, self.valid_locations, self.reward, self.is_terminal = game.get_initial_state()
         self.root = None
         self.node = None
+        self.canonical_observation_root = None
