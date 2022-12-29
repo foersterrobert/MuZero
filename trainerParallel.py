@@ -32,6 +32,7 @@ class Trainer:
 
             action_probs, value = self.muZero.predict(hidden_state)
             action_probs = torch.softmax(action_probs, dim=1).cpu().numpy()
+            action_probs = (1 - self.args['dirichlet_epsilon']) * action_probs + self.args['dirichlet_epsilon'] * np.random.dirichlet([self.args['dirichlet_alpha']] * self.game.action_size, size=action_probs.shape[0])
 
             for i, self_play_game in enumerate(self_play_games):
                 self_play_game.root = Node(
@@ -42,7 +43,6 @@ class Trainer:
                 )
 
                 my_action_probs = action_probs[i]
-                my_action_probs = (1 - self.args['dirichlet_epsilon']) * my_action_probs + self.args['dirichlet_epsilon'] * np.random.dirichlet([self.args['dirichlet_alpha']] * self.game.action_size)
                 my_action_probs *= self_play_game.valid_locations
                 my_action_probs /= np.sum(my_action_probs)
 
@@ -194,8 +194,8 @@ class Trainer:
             for epoch in trange(self.args['num_epochs'], desc="epochs"):
                 self.train()
 
-            torch.save(self.muZero.state_dict(), f"Models/{self.game}/model_{iteration}.pt")
-            torch.save(self.optimizer.state_dict(), f"Models/{self.game}/optimizer_{iteration}.pt")
+            torch.save(self.muZero.state_dict(), f"Weights/{self.game}/model_{iteration}.pt")
+            torch.save(self.optimizer.state_dict(), f"Weights/{self.game}/optimizer_{iteration}.pt")
 
 class SelfPlayGame:
     def __init__(self, game, game_idx):
