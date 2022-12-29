@@ -100,7 +100,6 @@ class DynamicsFunctionLinear(nn.Module):
 class PredictionFunctionLinear(nn.Module):
     def __init__(self, game, value_support):
         super().__init__()
-        self.game = game
         
         self.startBlock = nn.Sequential(
             nn.Linear(32, 64),
@@ -110,7 +109,7 @@ class PredictionFunctionLinear(nn.Module):
         )
 
         self.policy_head = nn.Sequential(
-            nn.Linear(64, self.game.action_size)
+            nn.Linear(64, game.action_size)
         )
         self.value_head = nn.Sequential(
             nn.Linear(64, 64),
