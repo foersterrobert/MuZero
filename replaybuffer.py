@@ -12,9 +12,9 @@ class ReplayBuffer:
 
     def empty(self):
         self.memory = []
+        self.trajectories = []
 
     def build_trajectories(self):
-        self.trajectories = []
         for i in range(len(self.memory)):
             observation, action, policy, value, reward, game_idx, is_terminal = self.memory[i]
             if is_terminal:
