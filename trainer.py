@@ -7,14 +7,13 @@ from mcts import MCTS
 from replaybuffer import ReplayBuffer
 
 class Trainer:
-    def __init__(self, muZero, optimizer, game, args):
-        self.muZero = muZero
-        self.optimizer = optimizer
-        self.game = game
-        self.args = args
-        self.mcts = MCTS(self.muZero, self.game, self.args)
-        self.replayBuffer = ReplayBuffer(self.args, self.game)
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    def __init__(self, config):
+        self.config = config
+        self.model = config.model
+        self.optimizer = config.optimizer
+        self.game = config.game
+        self.mcts = MCTS(self.model, self.game, self.config)
+        self.replayBuffer = ReplayBuffer(self.config, self.game)
 
     def self_play(self, game_idx):
         game_memory = []
@@ -32,12 +31,12 @@ class Trainer:
             action_probs /= np.sum(action_probs)
 
             # sample action from the mcts policy | based on temperature
-            if self.args['temperature'] == 0:
+            if self.config.temperature == 0:
                 action = np.argmax(action_probs)
-            elif self.args['temperature'] == float('inf'):
+            elif self.config.temperature == float('inf'):
                 action = np.random.choice([r for r in range(self.game.action_size) if action_probs[r] > 0])
             else:
-                temperature_action_probs = action_probs ** (1 / self.args['temperature'])
+                temperature_action_probs = action_probs ** (1 / self.config.temperature)
                 temperature_action_probs /= np.sum(temperature_action_probs)
                 action = np.random.choice(len(temperature_action_probs), p=temperature_action_probs)
 
@@ -57,7 +56,7 @@ class Trainer:
                         game_idx,
                         hist_terminal
                     ))
-                if not self.args['K'] > 0:
+                if not self.config.K > 0:
                     return_memory.append((
                         self.game.get_canonical_state(self.game.get_encoded_observation(observation), self.game.get_opponent_player(player)).copy(),
                         None,
@@ -73,12 +72,12 @@ class Trainer:
 
     def train(self):
         random.shuffle(self.replayBuffer.trajectories)
-        for batchIdx in range(0, len(self.replayBuffer) - 1, self.args['batch_size']): 
+        for batchIdx in range(0, len(self.replayBuffer) - 1, self.config.batch_size): 
             policy_loss = 0
             value_loss = 0
             # reward_loss = 0
 
-            observation, action, policy, value, reward = list(zip(*self.replayBuffer.trajectories[batchIdx:min(len(self.replayBuffer) -1, batchIdx + self.args['batch_size'])]))
+            observation, action, policy, value, reward = list(zip(*self.replayBuffer.trajectories[batchIdx:min(len(self.replayBuffer) -1, batchIdx + self.config.batch_size)]))
             observation = np.stack(observation)
 
             state = torch.tensor(observation, dtype=torch.float32, device=self.device)
@@ -86,16 +85,16 @@ class Trainer:
             policy = torch.tensor(np.stack(policy), dtype=torch.float32, device=self.device)
             value = torch.tensor(np.expand_dims(np.array(value), axis=-1), dtype=torch.float32, device=self.device)
 
-            if not self.args['cheatRepresentationFunction']:
+            if not self.config.cheatRepresentationFunction:
                 state = self.muZero.represent(state)
             out_policy, out_value = self.muZero.predict(state)
 
             policy_loss += F.cross_entropy(out_policy, policy[:, 0]) 
             value_loss += F.mse_loss(out_value, value[:, 0])
 
-            if self.args['K'] > 0:
-                for k in range(1, self.args['K'] + 1):
-                    if self.args['cheatDynamicsFunction']:
+            if self.config.K > 0:
+                for k in range(1, self.config.K + 1):
+                    if self.config.cheatDynamicsFunction:
                         observation, out_reward = self.muZero.dynamics(observation, action[:, k - 1])
                     else:
                         state, out_reward = self.muZero.dynamics(state, action[:, k - 1])
@@ -111,25 +110,25 @@ class Trainer:
                     policy_loss += F.cross_entropy(out_policy, policy[:, k])
                     value_loss += F.mse_loss(out_value, value[:, k])
 
-            loss = value_loss * self.args['value_loss_weight'] + policy_loss #+ reward_loss
-            loss /= self.args['K'] + 1
+            loss = value_loss * self.config.value_loss_weight + policy_loss #+ reward_loss
+            loss /= self.config.K + 1
 
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
 
     def run(self):
-        for iteration in range(self.args['num_iterations']):
+        for iteration in range(self.config.num_iterations):
             print(f"iteration: {iteration}")
             self.replayBuffer.empty()
 
             self.muZero.eval()
-            for train_game_idx in trange(self.args['num_train_games'], desc="train_game"):
-                self.replayBuffer.memory += self.self_play(train_game_idx + iteration * self.args['num_train_games'])
+            for train_game_idx in trange(self.config.num_train_games, desc="train_game"):
+                self.replayBuffer.memory += self.self_play(train_game_idx + iteration * self.config.num_train_games)
             self.replayBuffer.build_trajectories()
 
             self.muZero.train()
-            for epoch in trange(self.args['num_epochs'], desc="epochs"):
+            for epoch in trange(self.config.num_epochs, desc="epochs"):
                 self.train()
 
             torch.save(self.muZero.state_dict(), f"Weights/{self.game}/model_{iteration}.pt")

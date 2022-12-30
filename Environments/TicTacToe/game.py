@@ -1,33 +1,4 @@
-import torch
 import numpy as np
-from . import MuZeroConfigBasic
-from ..Models.resNet import MuZeroResNet
-
-class MuZeroConfigTicTacToe(MuZeroConfigBasic):
-    def __init__(self):
-        super().__init__(
-            device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
-            num_iterations=100,
-            num_train_games=100,
-            group_size=100,
-            num_mcts_runs=100,
-            num_epochs=100,
-            batch_size=100,
-            temperature=100,
-            K=100,
-            N=100,
-            c_init=100,
-            c_base=100,
-            gamma=0.997,
-            value_support=None,
-            reward_support=None,
-        )
-        self.game = TicTacToe()
-        self.model = MuZeroResNet({
-            'predictionFunction': {},
-            'dynamicsFunction': {},
-            'representationFunction': {},
-        })
 
 class TicTacToe:
     def __init__(self):

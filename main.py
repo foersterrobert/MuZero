@@ -2,8 +2,6 @@ import torch
 from torch.optim import Adam
 import numpy as np
 import random
-from Environments.tictactoe import TicTacToe
-from Models.resNet import MuZeroResNet
 # from trainer import Trainer
 from trainerParallel import Trainer
 
@@ -19,59 +17,20 @@ LOAD = False
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
+ENVIRONMENT = 'TicTacToe'
+
 if __name__ == '__main__':
-    # args = {
-    #     'num_iterations': 48,             # number of highest level iterations
-    #     'num_train_games': 500,           # number of self-play games to play within each iteration
-    #     'num_simulation_games': 800,      # number of mcts simulations when selecting a move within self-play
-    #     'num_training_steps': 32,         # number of epochs for training on self-play data for each iteration
-    #     'batch_size': 128,                # batch size for training
-    #     'temperature': 1,                 # temperature for the softmax selection of moves
-    #     'K': 5,                           # unroll K steps of the dynamics function when training
-    #     'c1': 1.25,                       # the value of the constant policy
-    #     'c2': 19652,                      # the value of the constant policy
-    #     'n': 10,                          # steps to unroll for reward prediction
-    #     'discount': 0.997
-    # }
-    args = {
-        'num_iterations': 20,             # number of highest level iterations
-        'num_train_games': 500,           # number of self-play games to play within each iteration
-        'group_size': 100,                # group size for parallel training
-        'num_mcts_runs': 60,              # number of mcts simulations when selecting a move within self-play
-        'num_epochs': 4,                  # number of epochs for training on self-play data for each iteration
-        'batch_size': 64,                 # batch size for training
-        'temperature': 1,                 # temperature for the softmax selection of moves
-        'K': 2,                           # unroll K steps of the dynamics function when training | Set to 0 when cheating
-        'c': 2,                           # the value of the constant policy
-        'c1': 1.25,                       # the value of the constant policy
-        'c2': 19652,                      # the value of the constant policy
-        'n': 10,                          # steps to unroll for reward prediction
-        'dirichlet_alpha': 0.3,           # dirichlet noise for exploration
-        'dirichlet_epsilon': 0.125,       # dirichlet noise for exploration
-        'discount': 0.997,
-        'value_loss_weight': 1, # 0.25,
-        'dynamicsFunction': {
-            'num_resBlocks': 4,
-            'hidden_planes': 128
-        },
-        'predictionFunction': {
-            'num_resBlocks': 4,
-            'hidden_planes': 128
-        },
-        'representationFunction': {
-            'num_resBlocks': 3,
-            'hidden_planes': 64
-        },
-        'cheatAvailableActions': False,
-        'cheatTerminalState': False,
-        'cheatDynamicsFunction': False,
-        'cheatRepresentationFunction': False,
-    }
-    game = TicTacToe()
-    muZero = MuZeroResNet(game, args).to(device)
-    optimizer = Adam(muZero.parameters(), lr=0.001, weight_decay=0.0001)
+    if ENVIRONMENT == 'CartPole':
+        from Environments.CartPole.config import MuZeroConfigCartPole as Config
+
+    elif ENVIRONMENT == 'TicTacToe':
+        from Environments.TicTacToe.config import MuZeroConfigTicTacToe as Config
+    
+    config = Config()
+
     if LOAD:
-        muZero.load_state_dict(torch.load(f'Models/{game}/model.pt', map_location=device))
-        optimizer.load_state_dict(torch.load(f'Models/{game}/optimizer.pt', map_location=device))
-    trainer = Trainer(muZero, optimizer, game, args)
+        config.model.load_state_dict(torch.load(f'Models/{config.game}/model.pt', map_location=device))
+        config.optimizer.load_state_dict(torch.load(f'Models/{config.game}/optimizer.pt', map_location=device))
+
+    trainer = Trainer(config)
     trainer.run()
