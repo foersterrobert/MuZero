@@ -1,5 +1,6 @@
 Flexible and intuitive build of [MuZero](https://arxiv.org/pdf/1911.08265.pdf).
 
-Currently works out of the box for TicTacToe with the option of applying several cheats.
+Currently implemented: TicTacToe, CartPole, CarRacing.
 
-![connectfour](https://raw.githubusercontent.com/foersterrobert/MuZero/master/assets/cartpole.gif)
+![carracing](https://raw.githubusercontent.com/foersterrobert/MuZero/master/assets/carracing.gif)
+![cartpole](https://raw.githubusercontent.com/foersterrobert/MuZero/master/assets/cartpole.gif)
