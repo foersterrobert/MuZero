@@ -128,4 +128,4 @@ class Trainer:
                 self.train()
 
             torch.save(self.model.state_dict(), f"Environments/{self.config}/Models/{self.model}_{iteration}.pt")
-            torch.save(self.optimizer.state_dict(), f"Environments/{self.config}/Models/optimizer_{iteration}.pt")
+            torch.save(self.optimizer.state_dict(), f"Environments/{self.config}/Models/{self.model}_optimizer_{iteration}.pt")

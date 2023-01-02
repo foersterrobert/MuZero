@@ -12,7 +12,7 @@ class MuZeroResNet(nn.Module):
         self.representationFunction = RepresentationFunctionResNet(**self.args['representationFunction'])
 
     def __repr__(self):
-        return "Model"
+        return "model"
 
     def predict(self, hidden_state):
         return self.predictionFunction(hidden_state)
@@ -151,7 +151,7 @@ class MuZeroResNetCheat(nn.Module):
         self.predictionFunction = PredictionFunctionResNet(**self.args['predictionFunction'])
 
     def __repr__(self):
-        return "ModelCheat"
+        return "modelCheat"
 
     def predict(self, hidden_state):
         return self.predictionFunction(hidden_state)

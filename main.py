@@ -8,7 +8,7 @@ torch.manual_seed(0)
 random.seed(0)
 np.random.seed(0)
 
-PARALLEL = False
+PARALLEL = True
 LOAD = True
 
 ENVIRONMENT = 'TicTacToe'
@@ -30,8 +30,8 @@ if __name__ == '__main__':
         from trainer import Trainer
 
     if LOAD:
-        config.model.load_state_dict(torch.load(f'Environments/{ENVIRONMENT}/Models/model.pt', map_location=config.device))
-        config.optimizer.load_state_dict(torch.load(f'Environments/{ENVIRONMENT}/Models/optimizer.pt', map_location=config.device))
+        config.model.load_state_dict(torch.load(f'Environments/{config}/Models/{config.model}.pt', map_location=config.device))
+        config.optimizer.load_state_dict(torch.load(f'Environments/{config}/Models/{config.model}_optimizer.pt', map_location=config.device))
 
     trainer = Trainer(config)
     trainer.run()

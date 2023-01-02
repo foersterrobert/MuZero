@@ -14,7 +14,7 @@ class MuZeroConfigTicTacToe(MuZeroConfigBasic):
             device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
             num_iterations=20,
             num_train_games=20,
-            group_size=100,
+            group_size=20,
             num_mcts_runs=60,
             num_epochs=4,
             batch_size=64,
