@@ -36,12 +36,9 @@ class Node:
         expand_state = self.state.copy()
         expand_state = np.expand_dims(expand_state, axis=0).repeat(len(actions), axis=0)
 
-        if self.config.cheatDynamicsFunction:
-            expand_state, reward = self.model.dynamics(expand_state, actions)
-        else:
-            expand_state, reward = self.model.dynamics(
-                torch.tensor(expand_state, dtype=torch.float32, device=self.model.device), actions)
-            expand_state = expand_state.detach().cpu().numpy()
+        expand_state, reward = self.model.dynamics(
+            torch.tensor(expand_state, dtype=torch.float32, device=self.config.device), actions)
+        expand_state = expand_state.detach().cpu().numpy()
         expand_state = self.game.get_canonical_state(expand_state, -1).copy()
         
         for i, a in enumerate(actions):
@@ -95,16 +92,10 @@ class MCTS:
 
     @torch.no_grad()
     def search(self, hidden_state, reward, available_actions):
-        if not self.config.cheatRepresentationFunction:
-            hidden_state = torch.tensor(hidden_state, dtype=torch.float32, device=self.config.device).unsqueeze(0)
-            hidden_state = self.model.represent(hidden_state)
-            action_probs, value = self.model.predict(hidden_state)
-            hidden_state = hidden_state.cpu().numpy().squeeze(0)
-        
-        else:
-            action_probs, value = self.model.predict(
-                torch.tensor(hidden_state, dtype=torch.float32, device=self.config.device).unsqueeze(0)
-            )
+        hidden_state = torch.tensor(hidden_state, dtype=torch.float32, device=self.config.device).unsqueeze(0)
+        hidden_state = self.model.represent(hidden_state)
+        action_probs, _ = self.model.predict(hidden_state)
+        hidden_state = hidden_state.cpu().numpy().squeeze(0)
 
         root = Node(hidden_state, reward, 0, self.model, self.config, self.game, visit_count=1)
 

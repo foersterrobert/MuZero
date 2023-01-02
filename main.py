@@ -21,8 +21,7 @@ if __name__ == '__main__':
         from Environments.TicTacToe.config import MuZeroConfigTicTacToe as Config
     
     config = Config(
-        cheatDynamicsFunction=True,
-        cheatRepresentationFunction=True,
+        cheatModel=True
     )
 
     if PARALLEL:

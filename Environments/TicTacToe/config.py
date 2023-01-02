@@ -1,6 +1,6 @@
 import torch
 from ..baseConfig import MuZeroConfigBasic
-from .model import MuZeroResNet
+from .model import MuZeroResNet, MuZeroResNetCheat
 from .game import TicTacToe
 
 class MuZeroConfigTicTacToe(MuZeroConfigBasic):
@@ -8,13 +8,12 @@ class MuZeroConfigTicTacToe(MuZeroConfigBasic):
         self,
         cheatAvailableActions=False,
         cheatTerminalState=False,
-        cheatDynamicsFunction=False,
-        cheatRepresentationFunction=False,
+        cheatModel=False,
     ):
         super().__init__(
             device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
             num_iterations=20,
-            num_train_games=500,
+            num_train_games=20,
             group_size=100,
             num_mcts_runs=60,
             num_epochs=4,
@@ -34,28 +33,42 @@ class MuZeroConfigTicTacToe(MuZeroConfigBasic):
 
         self.cheatAvailableActions = cheatAvailableActions
         self.cheatTerminalState = cheatTerminalState
-        self.cheatDynamicsFunction = cheatDynamicsFunction
-        self.cheatRepresentationFunction = cheatRepresentationFunction
 
         self.game = TicTacToe()
-        self.model = MuZeroResNet({
-            'predictionFunction': {
-                'num_resBlocks': 4,
-                'hidden_planes': 128
-            },
-            'dynamicsFunction': {
-                'num_resBlocks': 4,
-                'hidden_planes': 128
-            },
-            'representationFunction': {
-                'num_resBlocks': 3,
-                'hidden_planes': 64
-            },
-            'cheatAvailableActions': cheatAvailableActions,
-            'cheatTerminalState': cheatTerminalState,
-            'cheatDynamicsFunction': cheatDynamicsFunction,
-            'cheatRepresentationFunction': cheatRepresentationFunction,
-        }).to(self.device)
+
+        if cheatModel:
+            self.model = MuZeroResNetCheat({
+                'predictionFunction': {
+                    'num_resBlocks': 4,
+                    'hidden_planes': 128,
+                    'screen_size': 9,
+                    'action_size': 9,
+                    'value_support_size': 1,
+                    'value_activation': 'tanh'
+                },
+            }).to(self.device)
+
+        else:
+            self.model = MuZeroResNet({
+                'predictionFunction': {
+                    'num_resBlocks': 4,
+                    'hidden_planes': 128,
+                    'screen_size': 9,
+                    'action_size': 9,
+                    'value_support_size': 1,
+                    'value_activation': 'tanh'
+                },
+                'dynamicsFunction': {
+                    'num_resBlocks': 4,
+                    'hidden_planes': 128,
+                    'predict_reward': False, 
+                    'reward_support_size': 1
+                },
+                'representationFunction': {
+                    'num_resBlocks': 3,
+                    'hidden_planes': 64
+                },
+            }).to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
 
     def __repr__(self):

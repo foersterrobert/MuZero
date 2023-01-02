@@ -1,10 +1,10 @@
 import numpy as np
 
 class ReplayBuffer:
-    def __init__(self, args, game):
+    def __init__(self, config, game):
         self.memory = []
         self.trajectories = []
-        self.args = args
+        self.config = config
         self.game = game
 
     def __len__(self):
@@ -21,7 +21,7 @@ class ReplayBuffer:
                 action = np.random.choice(self.game.action_size)
             policy_list, action_list, value_list, reward_list = [policy], [action], [value], [reward]
 
-            for k in range(1, self.args['K'] + 1):
+            for k in range(1, self.config.K + 1):
                 if i + k < len(self.memory) and self.memory[i + k][5] == game_idx:
                     _, action, policy, value, reward, _, is_terminal = self.memory[i + k]
                     if is_terminal:

@@ -85,27 +85,23 @@ class Trainer:
             policy = torch.tensor(np.stack(policy), dtype=torch.float32, device=self.config.device)
             value = torch.tensor(np.expand_dims(np.array(value), axis=-1), dtype=torch.float32, device=self.config.device)
 
-            if not self.config.cheatRepresentationFunction:
-                state = self.muZero.represent(state)
-            out_policy, out_value = self.muZero.predict(state)
+            state = self.model.represent(state)
+            out_policy, out_value = self.model.predict(state)
 
             policy_loss += F.cross_entropy(out_policy, policy[:, 0]) 
             value_loss += F.mse_loss(out_value, value[:, 0])
 
             if self.config.K > 0:
                 for k in range(1, self.config.K + 1):
-                    if self.config.cheatDynamicsFunction:
-                        observation, out_reward = self.muZero.dynamics(observation, action[:, k - 1])
-                    else:
-                        state, out_reward = self.muZero.dynamics(state, action[:, k - 1])
-                        observation = state.detach().cpu().numpy()
+                    state, out_reward = self.model.dynamics(state, action[:, k - 1])
+                    observation = state.detach().cpu().numpy()
                 
                     # reward_loss += F.mse_loss(out_reward, reward[k])
 
                     observation = self.game.get_canonical_state(observation, -1).copy()
-                    state = torch.tensor(observation, dtype=torch.float32, device=self.device)
+                    state = torch.tensor(observation, dtype=torch.float32, device=self.config.device)
 
-                    out_policy, out_value = self.muZero.predict(state)
+                    out_policy, out_value = self.model.predict(state)
 
                     policy_loss += F.cross_entropy(out_policy, policy[:, k])
                     value_loss += F.mse_loss(out_value, value[:, k])
@@ -131,5 +127,5 @@ class Trainer:
             for epoch in trange(self.config.num_epochs, desc="epochs"):
                 self.train()
 
-            torch.save(self.model.state_dict(), f"Environment/{self.config}/model_{iteration}.pt")
-            torch.save(self.optimizer.state_dict(), f"Weights/{self.config}/optimizer_{iteration}.pt")
+            torch.save(self.model.state_dict(), f"Environments/{self.config}/Models/{self.model}_{iteration}.pt")
+            torch.save(self.optimizer.state_dict(), f"Environments/{self.config}/Models/optimizer_{iteration}.pt")

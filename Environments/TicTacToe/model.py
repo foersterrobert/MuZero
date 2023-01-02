@@ -8,52 +8,26 @@ class MuZeroResNet(nn.Module):
         super().__init__()
         self.args = args
         self.predictionFunction = PredictionFunctionResNet(**self.args['predictionFunction'])
-
-        if self.args['cheatDynamicsFunction'] == False:
-            self.dynamicsFunction = DynamicsFunctionResNet(**self.args['dynamicsFunction'])
-        
-        if self.args['cheatRepresentationFunction'] == False:
-            self.representationFunction = RepresentationFunctionResNet(**self.args['representationFunction'])
+        self.dynamicsFunction = DynamicsFunctionResNet(**self.args['dynamicsFunction'])
+        self.representationFunction = RepresentationFunctionResNet(**self.args['representationFunction'])
 
     def __repr__(self):
-        return "ResNet"
+        return "Model"
 
     def predict(self, hidden_state):
         return self.predictionFunction(hidden_state)
 
     def represent(self, observation):
-        if self.args['cheatRepresentationFunction'] == True:
-            return observation
         return self.representationFunction(observation)
 
     def dynamics(self, hidden_state, action):
-        if self.args['cheatDynamicsFunction'] == True:
-            if len(hidden_state.shape) == 4:
-                for i in range(hidden_state.shape[0]):
-                    hidden_state[i], _ = self.dynamics(hidden_state[i], action[i])
-            else:
-                row = action // 3
-                col = action % 3
-                if (hidden_state[1, row, col] == 1
-                    and np.max(np.sum(hidden_state[0], axis=0)) < 3 
-                    and np.max(np.sum(hidden_state[0], axis=1)) < 3
-                    and np.sum(np.diag(hidden_state[0])) < 3
-                    and np.sum(np.diag(np.fliplr(hidden_state[0]))) < 3
-                    and np.max(np.sum(hidden_state[2], axis=0)) < 3
-                    and np.max(np.sum(hidden_state[2], axis=1)) < 3
-                    and np.sum(np.diag(hidden_state[2])) < 3
-                    and np.sum(np.diag(np.fliplr(hidden_state[2]))) < 3
-                ):
-                    hidden_state[1, row, col] = 0
-                    hidden_state[2, row, col] = 1
-        else:
-            actionT = torch.zeros((hidden_state.shape[0], 1, 3, 3)).to(hidden_state.device)
-            for i in range(hidden_state.shape[0]):
-                row = action[i] // 3
-                col = action[i] % 3
-                actionT[i, 0, row, col] = 1
-            x = torch.cat((hidden_state, actionT), dim=1)
-            hidden_state, _ = self.dynamicsFunction(x)
+        actionT = torch.zeros((hidden_state.shape[0], 1, 3, 3)).to(hidden_state.device)
+        for i in range(hidden_state.shape[0]):
+            row = action[i] // 3
+            col = action[i] % 3
+            actionT[i, 0, row, col] = 1
+        x = torch.cat((hidden_state, actionT), dim=1)
+        hidden_state, _ = self.dynamicsFunction(x)
         return hidden_state, 0
 
 # Creates hidden state + reward based on old hidden state and action 
@@ -167,3 +141,44 @@ class ResBlock(nn.Module):
         out += residual
         out = F.relu(out)
         return out
+
+
+### CHEAT MODEL ###
+class MuZeroResNetCheat(nn.Module):
+    def __init__(self, args):
+        super().__init__()
+        self.args = args
+        self.predictionFunction = PredictionFunctionResNet(**self.args['predictionFunction'])
+
+    def __repr__(self):
+        return "ModelCheat"
+
+    def predict(self, hidden_state):
+        return self.predictionFunction(hidden_state)
+
+    def represent(self, observation):
+        return observation
+
+    def dynamics(self, hidden_state, action):
+        if len(hidden_state.shape) == 4:
+            device = hidden_state.device
+            hidden_state = hidden_state.cpu().detach().numpy()
+            for i in range(hidden_state.shape[0]):
+                hidden_state[i], _ = self.dynamics(hidden_state[i], action[i])
+            hidden_state = torch.from_numpy(hidden_state).to(device)
+        else:
+            row = action // 3
+            col = action % 3
+            if (hidden_state[1, row, col] == 1
+                and np.max(np.sum(hidden_state[0], axis=0)) < 3 
+                and np.max(np.sum(hidden_state[0], axis=1)) < 3
+                and np.sum(np.diag(hidden_state[0])) < 3
+                and np.sum(np.diag(np.fliplr(hidden_state[0]))) < 3
+                and np.max(np.sum(hidden_state[2], axis=0)) < 3
+                and np.max(np.sum(hidden_state[2], axis=1)) < 3
+                and np.sum(np.diag(hidden_state[2])) < 3
+                and np.sum(np.diag(np.fliplr(hidden_state[2]))) < 3
+            ):
+                hidden_state[1, row, col] = 0
+                hidden_state[2, row, col] = 1
+        return hidden_state, 0
