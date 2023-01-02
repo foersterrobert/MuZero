@@ -10,7 +10,7 @@ class KaggleAgent:
         self.game = game
         self.args = args
         if self.args['search']:
-            self.mcts = MCTS(self.model, self.game, self.args)
+            self.mcts = MCTS(self.model, self.game, self.args['config'])
 
     def run(self, obs, conf):
         player = obs['mark'] if obs['mark'] == 1 else -1
@@ -31,7 +31,7 @@ class KaggleAgent:
                 policy /= np.sum(policy)
 
             else:
-                hidden_state = torch.tensor(hidden_state, dtype=torch.float32, device=self.model.device).unsqueeze(0)
+                hidden_state = torch.tensor(canonical_observation, dtype=torch.float32, device=self.args['device']).unsqueeze(0)
                 hidden_state = self.model.represent(hidden_state)
 
                 policy, _ = self.model.predict(hidden_state)

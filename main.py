@@ -9,7 +9,7 @@ random.seed(0)
 np.random.seed(0)
 
 PARALLEL = True
-LOAD = True
+LOAD = False
 
 ENVIRONMENT = 'TicTacToe'
 
@@ -21,7 +21,7 @@ if __name__ == '__main__':
         from Environments.TicTacToe.config import MuZeroConfigTicTacToe as Config
     
     config = Config(
-        cheatModel=True
+        cheatModel=False
     )
 
     if PARALLEL:

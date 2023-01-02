@@ -77,20 +77,18 @@ class PredictionFunctionResNet(nn.Module):
         self.resBlocks = nn.ModuleList([ResBlock(hidden_planes, hidden_planes) for _ in range(num_resBlocks)])
 
         self.policy_head = nn.Sequential(
-            nn.Conv2d(hidden_planes, 32, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(hidden_planes, hidden_planes // 2, kernel_size=1, stride=1, padding=0),
             nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(32 * screen_size, action_size)
+            nn.Linear(hidden_planes // 2 * screen_size, action_size)
         )
         self.value_head = nn.Sequential(
             nn.Conv2d(hidden_planes, 3, kernel_size=1, stride=1, padding=0),
             nn.BatchNorm2d(3),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(3 * screen_size, 32),
-            nn.ReLU(),
-            nn.Linear(32, value_support_size),
+            nn.Linear(3 * screen_size, value_support_size),
         )
         if value_activation == 'tanh':
             self.value_head.add_module('tanh', nn.Tanh())
