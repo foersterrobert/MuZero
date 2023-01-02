@@ -1,6 +1,5 @@
 import torch
-import numpy as np
-from .. import MuZeroConfigBasic
+from ..baseConfig import MuZeroConfigBasic
 from .model import MuZeroResNet
 from .game import TicTacToe
 
@@ -14,21 +13,30 @@ class MuZeroConfigTicTacToe(MuZeroConfigBasic):
     ):
         super().__init__(
             device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
-            num_iterations=100,
-            num_train_games=100,
+            num_iterations=20,
+            num_train_games=500,
             group_size=100,
-            num_mcts_runs=100,
-            num_epochs=100,
-            batch_size=100,
-            temperature=100,
-            K=100,
-            N=100,
-            c_init=100,
-            c_base=100,
-            gamma=0.997,
+            num_mcts_runs=60,
+            num_epochs=4,
+            batch_size=64,
+            temperature=1,
+            K=3,
+            N=None,
+            c_init=2,
+            c_base=19625,
+            gamma=1,
+            dirichlet_alpha=0.3,
+            dirichlet_epsilon=0.25,
+            value_loss_weight=1,
             value_support=None,
             reward_support=None,
         )
+
+        self.cheatAvailableActions = cheatAvailableActions
+        self.cheatTerminalState = cheatTerminalState
+        self.cheatDynamicsFunction = cheatDynamicsFunction
+        self.cheatRepresentationFunction = cheatRepresentationFunction
+
         self.game = TicTacToe()
         self.model = MuZeroResNet({
             'predictionFunction': {
@@ -47,6 +55,8 @@ class MuZeroConfigTicTacToe(MuZeroConfigBasic):
             'cheatTerminalState': cheatTerminalState,
             'cheatDynamicsFunction': cheatDynamicsFunction,
             'cheatRepresentationFunction': cheatRepresentationFunction,
-        })
+        }).to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
 
+    def __repr__(self):
+        return 'TicTacToe'

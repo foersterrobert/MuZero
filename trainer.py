@@ -80,10 +80,10 @@ class Trainer:
             observation, action, policy, value, reward = list(zip(*self.replayBuffer.trajectories[batchIdx:min(len(self.replayBuffer) -1, batchIdx + self.config.batch_size)]))
             observation = np.stack(observation)
 
-            state = torch.tensor(observation, dtype=torch.float32, device=self.device)
+            state = torch.tensor(observation, dtype=torch.float32, device=self.config.device)
             action = np.array(action)
-            policy = torch.tensor(np.stack(policy), dtype=torch.float32, device=self.device)
-            value = torch.tensor(np.expand_dims(np.array(value), axis=-1), dtype=torch.float32, device=self.device)
+            policy = torch.tensor(np.stack(policy), dtype=torch.float32, device=self.config.device)
+            value = torch.tensor(np.expand_dims(np.array(value), axis=-1), dtype=torch.float32, device=self.config.device)
 
             if not self.config.cheatRepresentationFunction:
                 state = self.muZero.represent(state)
@@ -122,14 +122,14 @@ class Trainer:
             print(f"iteration: {iteration}")
             self.replayBuffer.empty()
 
-            self.muZero.eval()
+            self.model.eval()
             for train_game_idx in trange(self.config.num_train_games, desc="train_game"):
                 self.replayBuffer.memory += self.self_play(train_game_idx + iteration * self.config.num_train_games)
             self.replayBuffer.build_trajectories()
 
-            self.muZero.train()
+            self.model.train()
             for epoch in trange(self.config.num_epochs, desc="epochs"):
                 self.train()
 
-            torch.save(self.muZero.state_dict(), f"Weights/{self.game}/model_{iteration}.pt")
-            torch.save(self.optimizer.state_dict(), f"Weights/{self.game}/optimizer_{iteration}.pt")
+            torch.save(self.model.state_dict(), f"Environment/{self.config}/model_{iteration}.pt")
+            torch.save(self.optimizer.state_dict(), f"Weights/{self.config}/optimizer_{iteration}.pt")

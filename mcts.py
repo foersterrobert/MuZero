@@ -17,7 +17,7 @@ class MinMaxStats:
         return value
 
 class Node:
-    def __init__(self, state, reward, prior, muZero, args, game, parent=None, action_taken=None, visit_count=0):
+    def __init__(self, state, reward, prior, model, config, game, parent=None, action_taken=None, visit_count=0):
         self.state = state
         self.reward = reward
         self.children = []
@@ -25,9 +25,9 @@ class Node:
         self.total_value = 0
         self.visit_count = visit_count
         self.prior = prior
-        self.muZero = muZero
+        self.model = model
         self.action_taken = action_taken
-        self.args = args
+        self.config = config
         self.game = game
 
     @torch.no_grad()
@@ -36,11 +36,11 @@ class Node:
         expand_state = self.state.copy()
         expand_state = np.expand_dims(expand_state, axis=0).repeat(len(actions), axis=0)
 
-        if self.args['cheatDynamicsFunction']:
-            expand_state, reward = self.muZero.dynamics(expand_state, actions)
+        if self.config.cheatDynamicsFunction:
+            expand_state, reward = self.model.dynamics(expand_state, actions)
         else:
-            expand_state, reward = self.muZero.dynamics(
-                torch.tensor(expand_state, dtype=torch.float32, device=self.muZero.device), actions)
+            expand_state, reward = self.model.dynamics(
+                torch.tensor(expand_state, dtype=torch.float32, device=self.model.device), actions)
             expand_state = expand_state.detach().cpu().numpy()
         expand_state = self.game.get_canonical_state(expand_state, -1).copy()
         
@@ -49,8 +49,8 @@ class Node:
                 expand_state[i],
                 reward,
                 action_probs[a],
-                self.muZero,
-                self.args,
+                self.model,
+                self.config,
                 self.game,
                 parent=self,
                 action_taken=a,
@@ -79,64 +79,66 @@ class Node:
         return best_child
 
     def get_ucb_score(self, child):
-        # prior_score = child.prior * math.sqrt(self.visit_count) / (1 + child.visit_count) * (self.args['c1'] + math.log((self.visit_count + self.args['c2'] + 1) / self.args['c2']))
-        prior_score = self.args['c'] * child.prior * math.sqrt(self.visit_count) / (1 + child.visit_count)
+        prior_score = self.config.c_init + math.log((self.visit_count + self.config.c_base + 1) / self.config.c_base)
+        prior_score *= math.sqrt(self.visit_count) / (1 + child.visit_count)
+        prior_score *= child.prior
+
         if child.visit_count == 0:
             return prior_score
         return prior_score + self.game.get_opponent_value(child.total_value / child.visit_count)
 
 class MCTS:
-    def __init__(self, muZero, game, args):
-        self.muZero = muZero
+    def __init__(self, model, game, config):
+        self.model = model
         self.game = game
-        self.args = args
+        self.config = config
 
     @torch.no_grad()
     def search(self, hidden_state, reward, available_actions):
-        if not self.args['cheatRepresentationFunction']:
-            hidden_state = torch.tensor(hidden_state, dtype=torch.float32, device=self.muZero.device).unsqueeze(0)
-            hidden_state = self.muZero.represent(hidden_state)
-            action_probs, value = self.muZero.predict(hidden_state)
+        if not self.config.cheatRepresentationFunction:
+            hidden_state = torch.tensor(hidden_state, dtype=torch.float32, device=self.config.device).unsqueeze(0)
+            hidden_state = self.model.represent(hidden_state)
+            action_probs, value = self.model.predict(hidden_state)
             hidden_state = hidden_state.cpu().numpy().squeeze(0)
         
         else:
-            action_probs, value = self.muZero.predict(
-                torch.tensor(hidden_state, dtype=torch.float32, device=self.muZero.device).unsqueeze(0)
+            action_probs, value = self.model.predict(
+                torch.tensor(hidden_state, dtype=torch.float32, device=self.config.device).unsqueeze(0)
             )
 
-        root = Node(hidden_state, reward, 0, self.muZero, self.args, self.game, visit_count=1)
+        root = Node(hidden_state, reward, 0, self.model, self.config, self.game, visit_count=1)
 
         action_probs = torch.softmax(action_probs, dim=1).cpu().numpy().squeeze(0)
-        action_probs = (1 - self.args['dirichlet_epsilon']) * action_probs + self.args['dirichlet_epsilon'] * np.random.dirichlet([self.args['dirichlet_alpha']] * self.game.action_size)
+        action_probs = (1 - self.config.dirichlet_epsilon) * action_probs + self.config.dirichlet_epsilon * np.random.dirichlet([self.config.dirichlet_alpha] * self.game.action_size)
         action_probs *= available_actions
         action_probs /= np.sum(action_probs)
 
         root.expand(action_probs)
 
-        for simulation in range(self.args['num_mcts_runs']):
+        for simulation in range(self.config.num_mcts_runs):
             node = root
 
             while node.is_expanded():
                 node = node.select_child()
 
-            if self.args['cheatAvailableActions'] or self.args['cheatTerminalState']:
+            if self.config.cheatAvailableActions or self.config.cheatTerminalState:
                 unencoded_state = node.state.copy()
                 unencoded_state = (
                     unencoded_state * np.array([-1, 0, 1]).repeat(9).reshape(3, 3, 3)
                 ).sum(axis=0)
 
-                if self.args['cheatTerminalState']:
+                if self.config.cheatTerminalState:
                     is_terminal, value = self.game.check_terminal_and_value(unencoded_state, node.action_taken)
                     value = self.game.get_opponent_value(value)
 
-            if not self.args['cheatTerminalState'] or not is_terminal:
-                action_probs, value = self.muZero.predict(
-                    torch.tensor(node.state, dtype=torch.float32, device=self.muZero.device).unsqueeze(0)
+            if not self.config.cheatTerminalState or not is_terminal:
+                action_probs, value = self.model.predict(
+                    torch.tensor(node.state, dtype=torch.float32, device=self.config.device).unsqueeze(0)
                 )
                 action_probs = torch.softmax(action_probs, dim=1).cpu().numpy().squeeze(0)
                 value = value.item()
 
-                if self.args['cheatAvailableActions']:
+                if self.config.cheatAvailableActions:
                     available_actions = self.game.get_valid_locations(unencoded_state)
                     action_probs *= available_actions
                     action_probs /= np.sum(action_probs)
