@@ -13,8 +13,8 @@ class MuZeroConfigTicTacToe(MuZeroConfigBasic):
         super().__init__(
             device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
             num_iterations=20,
-            num_train_games=20,
-            group_size=20,
+            num_train_games=500,
+            group_size=100,
             num_mcts_runs=60,
             num_epochs=4,
             batch_size=64,
@@ -51,8 +51,8 @@ class MuZeroConfigTicTacToe(MuZeroConfigBasic):
         else:
             self.model = MuZeroResNet({
                 'predictionFunction': {
-                    'num_resBlocks': 4,
-                    'hidden_planes': 128,
+                    'num_resBlocks': 3,
+                    'hidden_planes': 64,
                     'screen_size': 9,
                     'action_size': 9,
                     'value_support_size': 1,
@@ -60,13 +60,13 @@ class MuZeroConfigTicTacToe(MuZeroConfigBasic):
                 },
                 'dynamicsFunction': {
                     'num_resBlocks': 4,
-                    'hidden_planes': 128,
+                    'hidden_planes': 64,
                     'predict_reward': False, 
                     'reward_support_size': 1
                 },
                 'representationFunction': {
                     'num_resBlocks': 3,
-                    'hidden_planes': 64
+                    'hidden_planes': 32
                 },
             }).to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
