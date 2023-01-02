@@ -78,7 +78,7 @@ class PredictionFunctionResNet(nn.Module):
 
         self.policy_head = nn.Sequential(
             nn.Conv2d(hidden_planes, hidden_planes // 2, kernel_size=1, stride=1, padding=0),
-            nn.BatchNorm2d(32),
+            nn.BatchNorm2d(hidden_planes // 2),
             nn.ReLU(),
             nn.Flatten(),
             nn.Linear(hidden_planes // 2 * screen_size, action_size)
