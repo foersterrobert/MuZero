@@ -1,8 +1,8 @@
 import gymnasium as gym
 
 class CartPole:
-    def __init__(self):
-        self.env = gym.make('CartPole-v1')
+    def __init__(self, render=False):
+        self.env = gym.make('CartPole-v1', render_mode='human' if render else 'rgb_array')
         self.action_size = self.env.action_space.n
 
     def __repr__(self):
@@ -33,4 +33,3 @@ class CartPole:
 
     def get_opponent_value(self, value):
         return value
-

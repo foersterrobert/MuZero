@@ -1,15 +1,16 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from ..baseConfig import DiscreteSupport
 
-class MuZeroLinearNet(nn.Module):
-    def __init__(self, game, args):
+class MuZero(nn.Module):
+    def __init__(self, game):
         super().__init__()
         self.game = game
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.value_support = DiscreteSupport(0, 20)
-        self.reward_support = DiscreteSupport(0, 5)
+        self.value_support = DiscreteSupport(-20, 20)
+        self.reward_support = DiscreteSupport(-5, 5)
         
         self.predictionFunction = PredictionFunction(self.game, self.value_support)
         self.dynamicsFunction = DynamicsFunction(self.reward_support)
@@ -41,15 +42,13 @@ class MuZeroLinearNet(nn.Module):
         scalar_output = (output_propbs * output_support).sum(dim=1, keepdim=True)
 
         epsilon = 0.001
-        sign = torch.ones(scalar_output.shape, device=self.device)
-        sign[scalar_output < 0] = -1.0
+        sign = torch.sign(scalar_output)
         inverse_scalar_output = sign * (((torch.sqrt(1 + 4 * epsilon * (torch.abs(scalar_output) + 1 + epsilon)) - 1) / (2 * epsilon)) ** 2 - 1)
         return inverse_scalar_output
 
     def scalar_transform(self, x):
         epsilon = 0.001
-        sign = torch.ones(x.shape, dtype=torch.float32, device=self.device)
-        sign[x < 0] = -1.0
+        sign = torch.sign(x)
         output = sign * (torch.sqrt(torch.abs(x) + 1) - 1 + epsilon * x)
         return output
 
@@ -59,8 +58,7 @@ class MuZeroLinearNet(nn.Module):
     def reward_phi(self, x):
         return self._phi(x, self.reward_support.min, self.reward_support.max, self.reward_support.size)
 
-    @staticmethod
-    def _phi(x, min, max, set_size: int):
+    def _phi(x, min, max, set_size):
         x.clamp_(min, max)
         x_low = x.floor()
         x_high = x.ceil()
@@ -74,7 +72,7 @@ class MuZeroLinearNet(nn.Module):
         return target
 
 # Creates hidden state + reward based on old hidden state and action 
-class DynamicsFunctionLinear(nn.Module):
+class DynamicsFunction(nn.Module):
     def __init__(self, reward_support):
         super().__init__()
         
@@ -97,9 +95,10 @@ class DynamicsFunctionLinear(nn.Module):
         return x, reward
     
 # Creates policy and value based on hidden state
-class PredictionFunctionLinear(nn.Module):
+class PredictionFunction(nn.Module):
     def __init__(self, game, value_support):
         super().__init__()
+        self.game = game
         
         self.startBlock = nn.Sequential(
             nn.Linear(32, 64),
@@ -109,7 +108,7 @@ class PredictionFunctionLinear(nn.Module):
         )
 
         self.policy_head = nn.Sequential(
-            nn.Linear(64, game.action_size)
+            nn.Linear(64, self.game.action_size)
         )
         self.value_head = nn.Sequential(
             nn.Linear(64, 64),
@@ -124,7 +123,7 @@ class PredictionFunctionLinear(nn.Module):
         return p, v
 
 # Creates initial hidden state based on observation | several observations
-class RepresentationFunctionLinear(nn.Module):
+class RepresentationFunction(nn.Module):
     def __init__(self):
         super().__init__()
         self.startBlock = nn.Sequential(
