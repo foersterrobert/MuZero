@@ -58,7 +58,7 @@ class MuZero(nn.Module):
     def reward_phi(self, x):
         return self._phi(x, self.reward_support.min, self.reward_support.max, self.reward_support.size)
 
-    def _phi(x, min, max, set_size):
+    def _phi(self, x, min, max, set_size):
         x.clamp_(min, max)
         x_low = x.floor()
         x_high = x.ceil()
