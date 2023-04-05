@@ -3,7 +3,7 @@ import numpy as np
 from PIL import Image
 
 class CarRacing:
-    def __init__(self, sequence_lenth=3, skip_frames=3, clip_reward=False, time_out_tolerance=100, time_out=25, render=False):
+    def __init__(self, sequence_lenth=3, skip_frames=3, clip_reward=False, time_out_tolerance=100, time_out=25, render=False, eval=False):
         self.env = gym.make('CarRacing-v2', continuous=False, domain_randomize=False, render_mode='human' if render else 'rgb_array')
         self.action_size = self.env.action_space.n
         self.obs_stack = []
@@ -14,6 +14,7 @@ class CarRacing:
         self.time_out = time_out
         self.counter = 0
         self.negative_reward_counter = 0
+        self.eval = eval
 
     def __repr__(self):
         return "CarRacing"
@@ -38,7 +39,7 @@ class CarRacing:
         self.obs_stack = self.obs_stack[1:] + [observation]
         if self.clip_reward:
             reward = np.clip(reward, -float('inf'), 1)
-        if reward < 0 and self.counter > self.time_out_tolerance:
+        if reward < 0 and self.counter > self.time_out_tolerance and not self.eval:
             self.negative_reward_counter += 1
             if self.negative_reward_counter >= self.time_out:
                 is_terminal = True

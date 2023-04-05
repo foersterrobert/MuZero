@@ -149,11 +149,11 @@ class RepresentationFunction(nn.Module):
             nn.Conv2d(hidden_planes // 2, hidden_planes, kernel_size=3, stride=2, padding=1), # 24x24
             nn.BatchNorm2d(hidden_planes),
             nn.ReLU(),
-            # ResBlock(hidden_planes, hidden_planes),
+            ResBlock(hidden_planes, hidden_planes),
             nn.Conv2d(hidden_planes, hidden_planes, kernel_size=3, stride=2, padding=1), # 12x12
             nn.BatchNorm2d(hidden_planes),
             nn.ReLU(),
-            # ResBlock(hidden_planes, hidden_planes),
+            ResBlock(hidden_planes, hidden_planes),
             nn.Conv2d(hidden_planes, hidden_planes // 2, kernel_size=3, stride=2, padding=1), # 6x6
             nn.BatchNorm2d(hidden_planes // 2),
             nn.ReLU(),
