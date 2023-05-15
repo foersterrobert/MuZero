@@ -1,18 +1,19 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
 
 class MuZeroResNet(nn.Module):
-    def __init__(self, args):
+    def __init__(self, args, game):
         super().__init__()
         self.args = args
-        self.predictionFunction = PredictionFunctionResNet(**self.args['predictionFunction'])
+        self.game = game
+
+        self.predictionFunction = PredictionFunctionResNet(game, **self.args['predictionFunction'])
         self.dynamicsFunction = DynamicsFunctionResNet(**self.args['dynamicsFunction'])
         self.representationFunction = RepresentationFunctionResNet(**self.args['representationFunction'])
 
     def __repr__(self):
-        return "model"
+        return "ResNet"
 
     def predict(self, hidden_state):
         return self.predictionFunction(hidden_state)
@@ -20,163 +21,113 @@ class MuZeroResNet(nn.Module):
     def represent(self, observation):
         return self.representationFunction(observation)
 
-    def dynamics(self, hidden_state, action):
-        actionT = torch.zeros((hidden_state.shape[0], 1, 3, 3)).to(hidden_state.device)
-        for i in range(hidden_state.shape[0]):
-            row = action[i] // 3
-            col = action[i] % 3
-            actionT[i, 0, row, col] = 1
-        x = torch.cat((hidden_state, actionT), dim=1)
-        hidden_state, _ = self.dynamicsFunction(x)
-        return hidden_state, 0
+    def dynamics(self, hidden_state, actions):
+        actionPlane = torch.zeros((hidden_state.shape[0], 1, self.game.row_count, self.game.column_count), device=hidden_state.device, dtype=torch.float32)
+        for i, a in enumerate(actions):
+            row = a // self.game.column_count
+            col = a % self.game.column_count
+            actionPlane[i, 0, row, col] = 1
+        x = torch.cat((hidden_state, actionPlane), dim=1)
+        return self.dynamicsFunction(x), None
 
 # Creates hidden state + reward based on old hidden state and action 
 class DynamicsFunctionResNet(nn.Module):
-    def __init__(self, num_resBlocks=16, hidden_planes=256, predict_reward=True, reward_support_size=1):
+    def __init__(self, num_resBlocks=2, num_hidden=16):
         super().__init__()
-        self.predict_reward = predict_reward
         
         self.startBlock = nn.Sequential(
-            nn.Conv2d(4, hidden_planes, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(hidden_planes),
+            nn.Conv2d(4, num_hidden, kernel_size=3, padding=1),
+            nn.BatchNorm2d(num_hidden),
             nn.ReLU()
         )
-        self.resBlocks = nn.ModuleList([ResBlock(hidden_planes, hidden_planes) for _ in range(num_resBlocks)])
+        self.backBone = nn.ModuleList([ResBlock(num_hidden) for _ in range(num_resBlocks)])
         self.endBlock = nn.Sequential(
-            nn.Conv2d(hidden_planes, 3, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(num_hidden, 3, kernel_size=3, padding=1),
             nn.BatchNorm2d(3),
+            nn.Tanh()
         )
-
-        if self.predict_reward:
-            self.rewardBlock = nn.Sequential(
-                nn.Conv2d(3, 1, kernel_size=1, stride=1, padding=0),
-                nn.Flatten(),
-                nn.Linear(9, reward_support_size)
-            )
 
     def forward(self, x):
         x = self.startBlock(x)
-        for block in self.resBlocks:
-            x = block(x)
+        for resblock in self.backBone:
+            x = resblock(x)
         x = self.endBlock(x)
-        if self.predict_reward:
-            reward = self.rewardBlock(x)
-            return x, reward
-        return x, 0
+        return x
     
 # Creates policy and value based on hidden state
 class PredictionFunctionResNet(nn.Module):
-    def __init__(self, num_resBlocks=20, hidden_planes=256, screen_size=9, action_size=9, value_support_size=1, value_activation='tanh'):
+    def __init__(self, game, num_resBlocks=2, num_hidden=16):
         super().__init__()
-        
+
         self.startBlock = nn.Sequential(
-            nn.Conv2d(3, hidden_planes, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(hidden_planes),
+            nn.Conv2d(3, num_hidden, kernel_size=3, padding=1),
+            nn.BatchNorm2d(num_hidden),
             nn.ReLU()
         )
-        self.resBlocks = nn.ModuleList([ResBlock(hidden_planes, hidden_planes) for _ in range(num_resBlocks)])
-
-        self.policy_head = nn.Sequential(
-            nn.Conv2d(hidden_planes, hidden_planes // 2, kernel_size=1, stride=1, padding=0),
-            nn.BatchNorm2d(hidden_planes // 2),
+        self.backBone = nn.ModuleList(
+            [ResBlock(num_hidden) for i in range(num_resBlocks)]
+        )
+        self.policyHead = nn.Sequential(
+            nn.Conv2d(num_hidden, num_hidden // 2, kernel_size=3, padding=1),
+            nn.BatchNorm2d(num_hidden // 2),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(hidden_planes // 2 * screen_size, action_size)
+            nn.Linear(num_hidden // 2 * game.row_count * game.column_count, game.action_size)
         )
-        self.value_head = nn.Sequential(
-            nn.Conv2d(hidden_planes, 3, kernel_size=1, stride=1, padding=0),
+        self.valueHead = nn.Sequential(
+            nn.Conv2d(num_hidden, 3, kernel_size=3, padding=1),
             nn.BatchNorm2d(3),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(3 * screen_size, value_support_size),
+            nn.Linear(3 * game.row_count * game.column_count, 1),
+            nn.Tanh()
         )
-        if value_activation == 'tanh':
-            self.value_head.add_module('tanh', nn.Tanh())
-
+        
     def forward(self, x):
         x = self.startBlock(x)
-        for block in self.resBlocks:
-            x = block(x)
-        p = self.policy_head(x)
-        v = self.value_head(x)
-        return p, v
+        for resBlock in self.backBone:
+            x = resBlock(x)
+        policy = self.policyHead(x)
+        value = self.valueHead(x)
+        return policy, value
 
 # Creates initial hidden state based on observation | several observations
 class RepresentationFunctionResNet(nn.Module):
-    def __init__(self, num_resBlocks=16, hidden_planes=256):
+    def __init__(self, num_hidden=16):
         super().__init__()
         
-        self.startBlock = nn.Sequential(
-            nn.Conv2d(3, hidden_planes, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(hidden_planes),
-            nn.ReLU()
-        )
-        self.resBlocks = nn.ModuleList([ResBlock(hidden_planes, hidden_planes) for _ in range(num_resBlocks)])
-        self.endBlock = nn.Sequential(
-            nn.Conv2d(hidden_planes, 3, kernel_size=3, stride=1, padding=1),
+        self.layers = nn.Sequential(
+            nn.Conv2d(3, num_hidden // 2, kernel_size=3, padding=1),
+            nn.BatchNorm2d(num_hidden // 2),
+            nn.ReLU(),
+            nn.Conv2d(num_hidden // 2, num_hidden, kernel_size=3, padding=1),
+            nn.BatchNorm2d(num_hidden),
+            nn.ReLU(),
+            # ResBlock(num_hidden),
+            nn.Conv2d(num_hidden, num_hidden // 2, kernel_size=3, padding=1),
+            nn.BatchNorm2d(num_hidden // 2),
+            nn.ReLU(),
+            nn.Conv2d(num_hidden // 2, 3, kernel_size=3, padding=1),
             nn.BatchNorm2d(3),
+            nn.Tanh()
         )
 
     def forward(self, x):
-        x = self.startBlock(x)
-        for block in self.resBlocks:
-            x = block(x)
-        x = self.endBlock(x)
+        x = self.layers(x)
         return x
 
 class ResBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, stride=1):
+    def __init__(self, num_hidden):
         super().__init__()
-        self.conv1 = nn.Conv2d(in_channels, out_channels, 3, padding=1, stride=stride, bias=False)
-        self.bn1 = nn.BatchNorm2d(out_channels)
-        self.conv2 = nn.Conv2d(out_channels, out_channels, 3, padding=1, stride=stride, bias=False)
-        self.bn2 = nn.BatchNorm2d(out_channels)
-
+        self.conv1 = nn.Conv2d(num_hidden, num_hidden, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(num_hidden)
+        self.conv2 = nn.Conv2d(num_hidden, num_hidden, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(num_hidden)
+        
     def forward(self, x):
         residual = x
-        out = F.relu(self.bn1(self.conv1(x)))
-        out = self.bn2(self.conv2(out))
-        out += residual
-        out = F.relu(out)
-        return out
-
-
-### CHEAT MODEL ###
-class MuZeroResNetCheat(nn.Module):
-    def __init__(self, args):
-        super().__init__()
-        self.args = args
-        self.predictionFunction = PredictionFunctionResNet(**self.args['predictionFunction'])
-
-    def __repr__(self):
-        return "modelCheat"
-
-    def predict(self, hidden_state):
-        return self.predictionFunction(hidden_state)
-
-    def represent(self, observation):
-        return observation
-
-    def dynamics(self, hidden_state, action):
-        if len(hidden_state.shape) == 4:
-            device = hidden_state.device
-            hidden_state = hidden_state.cpu().detach().numpy()
-            for i in range(hidden_state.shape[0]):
-                hidden_state[i], _ = self.dynamics(hidden_state[i], action[i])
-            hidden_state = torch.from_numpy(hidden_state).to(device)
-        else:
-            row = action // 3
-            col = action % 3
-            if (hidden_state[1, row, col] == 1
-                and np.max(np.sum(hidden_state[0], axis=0)) < 3 
-                and np.max(np.sum(hidden_state[0], axis=1)) < 3
-                and np.sum(np.diag(hidden_state[0])) < 3
-                and np.sum(np.diag(np.fliplr(hidden_state[0]))) < 3
-                and np.max(np.sum(hidden_state[2], axis=0)) < 3
-                and np.max(np.sum(hidden_state[2], axis=1)) < 3
-                and np.sum(np.diag(hidden_state[2])) < 3
-                and np.sum(np.diag(np.fliplr(hidden_state[2]))) < 3
-            ):
-                hidden_state[1, row, col] = 0
-                hidden_state[2, row, col] = 1
-        return hidden_state, 0
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = self.bn2(self.conv2(x))
+        x += residual
+        x = F.relu(x)
+        return x

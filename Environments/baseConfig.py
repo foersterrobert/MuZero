@@ -5,8 +5,8 @@ class MuZeroConfigBasic:
         device,
         num_iterations,
         num_train_games,
-        group_size,
-        num_mcts_runs,
+        num_parallel_games,
+        num_mcts_searches,
         num_epochs,
         batch_size,
         temperature,
@@ -14,10 +14,11 @@ class MuZeroConfigBasic:
         N,
         c_init,
         c_base,
-        gamma,
-        dirichlet_alpha,
+        discount,
         dirichlet_epsilon,
+        dirichlet_alpha,
         value_loss_weight,
+        max_grad_norm,
         value_support,
         reward_support,
     ):
@@ -26,8 +27,8 @@ class MuZeroConfigBasic:
         # Args
         self.num_iterations = num_iterations # number of highest level iterations
         self.num_train_games = num_train_games # number of self-play games to play within each iteration
-        self.group_size = group_size # group size for parallel training
-        self.num_mcts_runs = num_mcts_runs # number of mcts simulations when selecting a move within self-play
+        self.parallel_games = num_parallel_games # group size for parallel training
+        self.num_mcts_searches = num_mcts_searches # number of mcts simulations when selecting a move within self-play
         self.num_epochs = num_epochs # number of epochs for training on self-play data for each iteration
         self.batch_size = batch_size # batch size for training
         self.temperature = temperature # temperature for the softmax selection of moves
@@ -35,10 +36,11 @@ class MuZeroConfigBasic:
         self.N = N # steps to unroll for reward prediction
         self.c_init = c_init # the value of the constant policy
         self.c_base = c_base # the value of the constant policy
-        self.gamma = gamma # discount factor
+        self.discount = discount # discount factor
         self.dirichlet_alpha = dirichlet_alpha # dirichlet noise for exploration
         self.dirichlet_epsilon = dirichlet_epsilon # dirichlet noise for exploration
         self.value_loss_weight = value_loss_weight # weight for value loss
+        self.max_grad_norm = max_grad_norm # max gradient norm for training
 
         #     'num_iterations': 48,             # number of highest level iterations
         #     'num_train_games': 500,           # number of self-play games to play within each iteration

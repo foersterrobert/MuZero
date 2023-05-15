@@ -4,71 +4,62 @@ class TicTacToe:
     def __init__(self):
         self.row_count = 3
         self.column_count = 3
-        self.action_size = 9
-
+        self.action_size = self.row_count * self.column_count
+        
     def __repr__(self):
-        return 'TicTacToe'
-
+        return "TicTacToe"
+        
     def get_initial_state(self):
-        observation = np.zeros((self.row_count, self.column_count), dtype=np.int8)
-        valid_locations = self.get_valid_locations(observation)
-        reward = 0
-        terminal = False
-        return observation, valid_locations, reward, terminal
-
-    def is_position_a_winner(self, observation, action):
-        if action is None:
-            return False
-
+        return np.zeros((self.row_count, self.column_count))
+    
+    def get_next_state(self, state, action, player):
         row = action // self.column_count
         column = action % self.column_count
-        mark = observation[row][column]
+        state[row, column] = player
+        return state
+    
+    def get_valid_moves(self, state):
+        if len(state.shape) == 3:
+            return (state.reshape(-1, 9) == 0).astype(np.uint8)
+        return (state.reshape(9) == 0).astype(np.uint8)
+    
+    def check_win(self, state, action):
+        if action == None:
+            return False
+        
+        row = action // self.column_count
+        column = action % self.column_count
+        player = state[row, column]
         
         return (
-            np.sum(observation[row]) == mark * self.column_count # row
-            or np.sum(observation[:, column]) == mark * self.row_count # column 
-            or np.sum(np.diag(observation)) == mark * self.row_count # diagonal 
-            or np.sum(np.diag(np.fliplr(observation))) == mark * self.row_count # flipped diagonal
+            np.sum(state[row, :]) == player * self.column_count
+            or np.sum(state[:, column]) == player * self.row_count
+            or np.sum(np.diag(state)) == player * self.row_count
+            or np.sum(np.diag(np.flip(state, axis=0))) == player * self.row_count
         )
-
-    def step(self, observation, action, player):
-        row = action // self.column_count
-        column = action % self.column_count
-        observation[row][column] = player
-        valid_locations = self.get_valid_locations(observation)
-        is_terminal, reward = self.check_terminal_and_value(observation, action)
-        return observation, valid_locations, reward, is_terminal
-
-    def get_valid_locations(self, observation):
-        return (observation.reshape(-1) == 0).astype(np.uint8)
-
-    def get_canonical_state(self, hidden_state, player):
-        return hidden_state if player == 1 else np.flip(hidden_state, axis=int(len(hidden_state.shape) == 4))
-
-    def get_encoded_observation(self, observation):
-        if len(observation.shape) == 3:
-            encoded_observation = np.swapaxes(np.stack(
-                ((observation == -1), (observation == 0), (observation == 1))), 0, 1
-            ).astype(np.float32)
-
-        else:
-            encoded_observation = np.stack((
-                (observation == -1),
-                (observation == 0),
-                (observation == 1)
-            )).astype(np.float32)
-
-        return encoded_observation
-
-    def check_terminal_and_value(self, observation, action):
-        if self.is_position_a_winner(observation, action):
-            return (True, 1)
-        if np.sum(self.get_valid_locations(observation)) == 0:
-            return (True, 0)
-        return (False, 0)
     
-    def get_opponent_player(self, player):
-        return player * -1
-
+    def get_value_and_terminated(self, state, action):
+        if self.check_win(state, action):
+            return 1, True
+        if np.sum(self.get_valid_moves(state)) == 0:
+            return 0, True
+        return 0, False
+    
+    def get_opponent(self, player):
+        return -player
+    
     def get_opponent_value(self, value):
-        return value * -1
+        return -value
+    
+    def change_perspective(self, state, player):
+        return state * player
+    
+    def get_encoded_observation(self, state):
+        encoded_state = np.stack(
+            (state == -1, state == 0, state == 1)
+        ).astype(np.float32)
+        
+        if len(state.shape) == 3:
+            encoded_state = np.swapaxes(encoded_state, 0, 1)
+        
+        return encoded_state
