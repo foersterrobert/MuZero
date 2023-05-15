@@ -6,7 +6,7 @@ from tqdm import trange
 from mcts import Node
 from replaybuffer import ReplayBuffer
 
-class Trainer:
+class MuZeroParallel:
     def __init__(self, config):
         self.config = config
         self.model = config.model
