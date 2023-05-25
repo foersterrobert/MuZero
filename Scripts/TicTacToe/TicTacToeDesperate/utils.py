@@ -4,14 +4,18 @@ from mcts import MCTS
 from kaggle_environments import make, evaluate
 
 class KaggleAgent:
-    def __init__(self, muZero, game, args):
+    def __init__(self, muZero, game, args, name='MuZero'):
         self.muZero = muZero
         self.game = game
         self.args = args
+        self.name = name
         if self.args['search']:
             self.mcts = MCTS(self.muZero, self.game, self.args)
 
-    def run(self, obs, conf):
+    def __repr__(self):
+        return self.name
+
+    def __call__(self, obs, conf):
         player = obs['mark'] if obs['mark'] == 1 else -1
         observation = np.array(obs['board']).reshape(self.game.row_count, self.game.column_count)
         observation[observation==2] = -1
@@ -54,6 +58,6 @@ def evaluateKaggle(gameName, players, num_iterations=1):
 
     results = np.array(evaluate(gameName, players, num_episodes=num_iterations))[:, 0]
     print(f"""
-Player 1 | Wins: {np.sum(results == 1)} | Draws: {np.sum(results == 0)} | Losses: {np.sum(results == -1)}
-Player 2 | Wins: {np.sum(results == -1)} | Draws: {np.sum(results == 0)} | Losses: {np.sum(results == 1)}
+{players[0]} | Wins: {np.sum(results == 1)} | Draws: {np.sum(results == 0)} | Losses: {np.sum(results == -1)}
+{players[1]} | Wins: {np.sum(results == -1)} | Draws: {np.sum(results == 0)} | Losses: {np.sum(results == 1)}
     """)
