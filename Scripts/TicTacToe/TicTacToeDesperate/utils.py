@@ -61,3 +61,4 @@ def evaluateKaggle(gameName, players, num_iterations=1):
 {players[0]} | Wins: {np.sum(results == 1)} | Draws: {np.sum(results == 0)} | Losses: {np.sum(results == -1)}
 {players[1]} | Wins: {np.sum(results == -1)} | Draws: {np.sum(results == 0)} | Losses: {np.sum(results == 1)}
     """)
+    return results
