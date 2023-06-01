@@ -5,25 +5,30 @@ from mcts import MCTS
 from kaggle_environments import make, evaluate
 
 class KaggleAgent:
-    def __init__(self, model, game, args):
+    def __init__(self, model, game, args, name="MuZero"):
         self.model = model
         self.game = game
         self.args = args
+        self.name = name
         if self.args['search']:
             self.mcts = MCTS(self.model, self.game, self.args['config'])
 
-    def run(self, obs, conf):
+    def __repr__(self):
+        return self.name
+
+    def __call__(self, obs, conf):
         player = obs['mark'] if obs['mark'] == 1 else -1
         observation = np.array(obs['board']).reshape(self.game.row_count, self.game.column_count)
         observation[observation==2] = -1
-        valid_moves = self.game.get_valid_locations(observation)
-        
-        encoded_observation = self.game.get_encoded_observation(observation)
-        canonical_observation = self.game.get_canonical_state(encoded_observation, player).copy()
 
+        valid_moves = self.game.get_valid_moves(observation)
+        
+        neutral_observation = self.game.change_perspective(observation, player).copy()
+        encoded_observation = self.game.get_encoded_observation(neutral_observation)
+        
         with torch.no_grad():
             if self.args['search']:
-                root = self.mcts.search(canonical_observation, 0, valid_moves)
+                root = self.mcts.search(encoded_observation, valid_moves)
 
                 policy = [0] * self.game.action_size
                 for child in root.children:
@@ -31,7 +36,7 @@ class KaggleAgent:
                 policy /= np.sum(policy)
 
             else:
-                hidden_state = torch.tensor(canonical_observation, dtype=torch.float32, device=self.args['device']).unsqueeze(0)
+                hidden_state = torch.tensor(encoded_observation, dtype=torch.float32, device=self.args['device']).unsqueeze(0)
                 hidden_state = self.model.represent(hidden_state)
 
                 policy, _ = self.model.predict(hidden_state)
@@ -97,8 +102,8 @@ def evaluateKaggle(gameName, players, num_iterations=1):
 
     results = np.array(evaluate(gameName, players, num_episodes=num_iterations))[:, 0]
     print(f"""
-Player 1 | Wins: {np.sum(results == 1)} | Draws: {np.sum(results == 0)} | Losses: {np.sum(results == -1)}
-Player 2 | Wins: {np.sum(results == -1)} | Draws: {np.sum(results == 0)} | Losses: {np.sum(results == 1)}
+{players[0]} | Wins: {np.sum(results == 1)} | Draws: {np.sum(results == 0)} | Losses: {np.sum(results == -1)}
+{players[1]} | Wins: {np.sum(results == -1)} | Draws: {np.sum(results == 0)} | Losses: {np.sum(results == 1)}
     """)
 
 def evaluateGym(gameName, agent, num_iterations=1):

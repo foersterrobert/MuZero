@@ -60,7 +60,6 @@ class MuZeroConfigTicTacToe(MuZeroConfigBasic):
                 'num_hidden': 16,
             },
             'representationFunction': {
-                'num_resBlocks': 1,
                 'num_hidden': 16,
             },
         }, self.game).to(self.device)
