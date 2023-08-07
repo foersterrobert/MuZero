@@ -1,8 +1,6 @@
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
-from ..baseConfig import DiscreteSupport
-
 
 class MuZero(nn.Module):
     def __init__(self, game, device):
@@ -180,3 +178,11 @@ class ResBlock(nn.Module):
         out += residual
         out = F.relu(out)
         return out
+
+class DiscreteSupport:
+    def __init__(self, min, max):
+        assert min < max
+        self.min = min
+        self.max = max
+        self.range = range(min, max + 1)
+        self.size = len(self.range)

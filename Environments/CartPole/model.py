@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from ..baseConfig import DiscreteSupport
 
 class MuZero(nn.Module):
     def __init__(self, game):
@@ -134,3 +133,11 @@ class RepresentationFunction(nn.Module):
     def forward(self, x):
         x = self.startBlock(x)
         return x
+    
+class DiscreteSupport:
+    def __init__(self, min, max):
+        assert min < max
+        self.min = min
+        self.max = max
+        self.range = range(min, max + 1)
+        self.size = len(self.range)
