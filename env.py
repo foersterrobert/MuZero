@@ -6,7 +6,6 @@ class TicTacToe:
         self.row_count = 3
         self.column_count = 3
         self.action_size = self.row_count * self.column_count
-        self.sequence_length = 3
 
     def get_initial_state(self):
         return torch.zeros((self.row_count, self.column_count), device=self.device)
@@ -17,7 +16,7 @@ class TicTacToe:
         return state
 
     def get_valid_actions(self, state):
-        return (state.reshape(9) == 0).to(torch.float32)
+        return (state.reshape(self.action_size) == 0).to(torch.float32)
 
     def check_win(self, state, action):
         row, column = action // self.column_count, action % self.column_count

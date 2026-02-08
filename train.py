@@ -24,7 +24,6 @@ class Trainer:
             encoded_state = self.env.get_encoded_state(neutral_state)
             action_probs = self.mcts.search(encoded_state)
             
-
             temperature_action_probs = action_probs ** (1 / TEMPERATURE)
             temperature_action_probs = temperature_action_probs / temperature_action_probs.sum()
             valid_actions = self.env.get_valid_actions(state)

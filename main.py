@@ -1,10 +1,9 @@
-from mcts import MCTS
-from train import Trainer
 from config import *
-from replayBuffer import *
-from model import MuZero
-from env import TicTacToe
+
 import torch
+from env import TicTacToe
+from model import MuZero
+from train import Trainer
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
