@@ -2,7 +2,7 @@
 NUM_ITERATIONS = 48
 
 # Number of self-play games to play within each iteration
-NUM_SELF_PLAY_ITERATIONS = 500
+NUM_SELF_PLAY_ITERATIONS = 10
 
 # Number of games to play in parallel
 NUM_PARALLEL_GAMES = 100
@@ -42,3 +42,6 @@ GAMMA = 0.997
 
 # The weight of the value loss in the total loss
 VALUE_LOSS_WEIGHT = 0.25
+
+# The maximum norm for gradient clipping
+MAX_GRAD_NORM = 5

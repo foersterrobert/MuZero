@@ -1,63 +1,58 @@
 from config import *
-import numpy as np
+import torch
+from dataclasses import dataclass
+
+@dataclass
+class Transition:
+    state: torch.Tensor
+    player: int
+    action: int
+    action_probs: torch.Tensor
+    reward: float
+    value: float
+
+@dataclass
+class Sequence:
+    state: torch.Tensor   # (3, 3)
+    actions: list       # List of int
+    action_probs: list      # List of torch.Tensor
+    values: list        # List of float
+    rewards: list       # List of float
 
 class ReplayBuffer:
     def __init__(self, env):
-        self.memory = []
-        self.trajectories = []
         self.env = env
-
-    def __len__(self):
-        return len(self.trajectories)
+        self.trajectories = [] # store whole env trajectories from self-play, each trajectory is a list of (state, action, action_probs, reward) tuples
+        self.sequences = [] # store k-step sequences for training, each sequence is a list of (state, action, action_probs, value, reward) tuples
 
     def empty(self):
-        self.memory = []
         self.trajectories = []
+        self.sequences = []
 
-    def build_trajectories(self):
-        for i in range(len(self.memory)):
-            observation, action, policy, reward, _, game_idx = self.memory[i]
-            policy_list, action_list, value_list, reward_list = [policy], [action], [], [reward]
+    def build_sequences(self):
+        for trajectory in self.trajectories:
+            for i in range(len(trajectory)):
+                state, action, action_probs, reward, value = trajectory[i].state, trajectory[i].action, trajectory[i].action_probs, trajectory[i].reward, trajectory[i].value
+                action_list, action_probs_list, value_list, reward_list = [action], [action_probs], [value], [reward]
 
-            # value bootstrap for N-step return
-            # value starts at root value n steps ahead
-            if i + N + 1 < len(self.memory) and self.memory[i + N + 1][5] == game_idx:
-                value = self.memory[i + N + 1][4] * GAMMA ** N
-            else:
-                value = 0
-            # add discounted rewards until end of game or N steps
-            for n in range(2, N + 2):
-                if i + n < len(self.memory) and self.memory[i + n][5] == game_idx:
-                    _, _, _, reward, _, _ = self.memory[i + n]
-                    value += reward * GAMMA ** (n - 2)
-                else:
-                    break
-            value_list.append(value)
+                for k in range(1, K + 1):
+                    if i + k < len(trajectory):
+                        action_k, action_probs_k, reward_k, value_k = trajectory[i + k].action, trajectory[i + k].action_probs, trajectory[i + k].reward, trajectory[i + k].value
+                        action_list.append(action_k)
+                        action_probs_list.append(action_probs_k)
+                        value_list.append(value_k)
+                        reward_list.append(reward_k)
 
-            for k in range(1, K + 1):
-                if i + k < len(self.memory) and self.memory[i + k][5] == game_idx:
-                    _, action, policy, reward, _, _ = self.memory[i + k]
-                    action_list.append(action)
-                    policy_list.append(policy)
-                    reward_list.append(reward)
-
-                    if i + k + N + 1 < len(self.memory) and self.memory[i + k + N + 1][5] == game_idx:
-                        value = self.memory[i + k + N + 1][4] * GAMMA ** N
                     else:
-                        value = 0
-                    for n in range(2, N + 2):
-                        if i + k + n < len(self.memory) and self.memory[i + k + n][5] == game_idx:
-                            _, _, _, reward, _, _ = self.memory[i + k + n]
-                            value += reward * GAMMA ** (n - 2)
-                        else:
-                            break
-                    value_list.append(value)
+                        action_list.append(torch.randint(self.env.action_size, (1,)).item())
+                        action_probs_list.append(torch.full((self.env.action_size,), 1 / self.env.action_size))
+                        reward_list.append(0)
+                        value_list.append(0)
 
-                else:
-                    action_list.append(np.random.choice(self.env.action_size))
-                    policy_list.append(np.full(self.env.action_size, 1 / self.env.action_size))
-                    value_list.append(0)
-                    reward_list.append(0)
-
-            policy_list = np.stack(policy_list)
-            self.trajectories.append((observation, action_list, policy_list, value_list, reward_list))
+                self.sequences.append(Sequence(
+                    state=state,
+                    actions=action_list,
+                    action_probs=action_probs_list,
+                    values=value_list,
+                    rewards=reward_list,
+                ))

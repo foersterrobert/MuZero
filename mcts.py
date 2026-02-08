@@ -43,7 +43,7 @@ class Node:
             prob_value = prob.item()
             if prob_value > 0:
                 child_hidden_state = self.hidden_state.clone()
-                child_hidden_state = self.model.dynamics(child_hidden_state, torch.tensor([action], device=child_hidden_state.device))[0].squeeze(0)
+                child_hidden_state = self.model.dynamics(child_hidden_state, [action])[0]
 
                 child = Node(self.env, self.model, child_hidden_state, self, action, prob_value)
                 self.children.append(child)
@@ -63,11 +63,11 @@ class MCTS:
         self.noise = dist.Dirichlet(torch.ones(self.env.action_size) * DIRICHLET_ALPHA)
         
     @torch.no_grad()
-    def search(self, state):
-        hidden_state = self.model.represent(state.unsqueeze(0).to(device=self.model.device))
+    def search(self, encoded_state):
+        hidden_state = self.model.represent(encoded_state.unsqueeze(0).to(device=self.model.device))
         root = Node(self.env, self.model, hidden_state, visit_count=1)
         
-        policy, _ = self.model(
+        policy, _ = self.model.predict(
             hidden_state.to(device=self.model.device)
         )
         policy = torch.softmax(policy, axis=1).squeeze(0).cpu()
@@ -82,7 +82,7 @@ class MCTS:
                 node = node.select()
                 
             policy, value = self.model.predict(
-                node.hidden_state.to(device=self.model.device).unsqueeze(0)
+                node.hidden_state.to(device=self.model.device)
             )
             policy = torch.softmax(policy, axis=1).squeeze(0).cpu()
             

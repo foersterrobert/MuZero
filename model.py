@@ -16,9 +16,15 @@ class MuZero(nn.Module):
         return self.representationFunction(observation)
 
     def dynamics(self, hidden_state, actions):
-        # hidden_state (B, 3, 3, 3), actions (B, 9) one-hot torch tensor -> (B, 1, 3, 3), merge -> (B, 4, 3, 3)
-        plane = actions.to(device=hidden_state.device, dtype=hidden_state.dtype).reshape(-1, 1, 3, 3)
-        x = torch.cat((hidden_state, plane), dim=1)
+        # hidden_state (B, 3, 3, 3), actions List[int] -> (B, 1, 3, 3) planes, merge -> (B, 4, 3, 3)
+        planes = []
+        for action in actions:
+            plane = torch.zeros(1, 3, 3, device=hidden_state.device, dtype=hidden_state.dtype)
+            row, col = action // 3, action % 3
+            plane[0, row, col] = 1
+            planes.append(plane)
+        planes = torch.stack(planes)
+        x = torch.cat((hidden_state, planes), dim=1)
         return self.dynamicsFunction(x)
 
     def predict(self, hidden_state):

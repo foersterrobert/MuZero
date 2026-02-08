@@ -5,8 +5,7 @@ Minimal MuZero for 3×3 Tic-Tac-Toe: torch-based environment and small conv mode
 How to handle termination in dynamics MCTS?
 How to handle change of perspective in dynamics MCTS? (for value and state)
 Irwie store reward in nodes?
-Bei train irwie gehe K steps in die Zukunft
-Beachte value loss weight
+Offset reward, value komisch
 
 ---
 
