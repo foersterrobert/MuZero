@@ -1,6 +1,13 @@
 # Project Overview
 Minimal MuZero for 3×3 Tic-Tac-Toe: torch-based environment and small conv model (representation, dynamics, prediction).
 
+# Questions
+How to handle termination in dynamics MCTS?
+How to handle change of perspective in dynamics MCTS? (for value and state)
+Irwie store reward in nodes?
+Bei train irwie gehe K steps in die Zukunft
+Beachte value loss weight
+
 ---
 
 # Plan
@@ -33,7 +40,7 @@ Minimal MuZero for 3×3 Tic-Tac-Toe: torch-based environment and small conv mode
 | Component | Input | Output |
 |-----------|--------|--------|
 | **Representation** | Observation **(B, 3, 3, 3)** | Hidden state **(B, 3, 3, 3)** |
-| **Dynamics** | Hidden **(B, 3, 3, 3)** + actions **(B, 9)** one-hot (torch) | Next hidden **(B, 3, 3, 3)**, reward **(B, 1)** |
+| **Dynamics** | Hidden **(B, 3, 3, 3)** + actions **(B, 9)** one-hot (torch) | Next hidden **(B, 3, 3, 3)**, reward **(B, 1)** (We assume it already changes the perspective of the game for TicTacToe) |
 | **Prediction** | Hidden **(B, 3, 3, 3)** | Policy logits **(B, 9)**, value **(B, 1)** |
 
 - **Dynamics action encoding**: `actions` (B, 9) is reshaped to **(B, 1, 3, 3)** and concatenated with hidden state → dynamics input **(B, 4, 3, 3)** (one extra channel, not nine).

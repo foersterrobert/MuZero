@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import numpy as np
 
 # 3x3 Tic-Tac-Toe only. Observation: (B, 3, 3, 3). Hidden: (B, 3, 3, 3). Actions: 9.
 

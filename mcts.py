@@ -1,12 +1,13 @@
 import math
 import torch
 import torch.distributions as dist
+from config import *
 
 class Node:
-    def __init__(self, env, args, state, parent=None, action_taken=None, prior=0, visit_count=0):
+    def __init__(self, env, model, hidden_state, parent=None, action_taken=None, prior=0, visit_count=0):
         self.env = env
-        self.args = args
-        self.state = state
+        self.model = model
+        self.hidden_state = hidden_state
         self.parent = parent
         self.action_taken = action_taken
         self.prior = prior
@@ -35,17 +36,16 @@ class Node:
             q_value = 0
         else:
             q_value = 1 - ((child.value_sum / child.visit_count) + 1) / 2
-        return q_value + self.args['C'] * (math.sqrt(self.visit_count) / (child.visit_count + 1)) * child.prior
+        return q_value + C * (math.sqrt(self.visit_count) / (child.visit_count + 1)) * child.prior
     
     def expand(self, policy):
         for action, prob in enumerate(policy):
-            prob_value = prob.item() if isinstance(prob, torch.Tensor) else prob
+            prob_value = prob.item()
             if prob_value > 0:
-                child_state = self.state.clone()
-                child_state = self.env.get_next_state(child_state, action, 1)
-                child_state = self.env.change_perspective(child_state, player=-1)
+                child_hidden_state = self.hidden_state.clone()
+                child_hidden_state = self.model.dynamics(child_hidden_state, torch.tensor([action], device=child_hidden_state.device))[0].squeeze(0)
 
-                child = Node(self.env, self.args, child_state, self, action, prob_value)
+                child = Node(self.env, self.model, child_hidden_state, self, action, prob_value)
                 self.children.append(child)
             
     def backpropagate(self, value):
@@ -57,49 +57,36 @@ class Node:
             self.parent.backpropagate(value)  
 
 class MCTS:
-    def __init__(self, model, env, args):
+    def __init__(self, model, env):
         self.model = model
         self.env = env
-        self.args = args
+        self.noise = dist.Dirichlet(torch.ones(self.env.action_size) * DIRICHLET_ALPHA)
         
     @torch.no_grad()
     def search(self, state):
-        root = Node(self.env, self.args, state, visit_count=1)
+        hidden_state = self.model.represent(state.unsqueeze(0).to(device=self.model.device))
+        root = Node(self.env, self.model, hidden_state, visit_count=1)
         
         policy, _ = self.model(
-            self.env.get_encoded_state(state).to(device=self.model.device).unsqueeze(0)
+            hidden_state.to(device=self.model.device)
         )
         policy = torch.softmax(policy, axis=1).squeeze(0).cpu()
-        dirichlet_noise = dist.Dirichlet(torch.ones(self.env.action_size) * self.args['dirichlet_alpha']).sample()
-        policy = (1 - self.args['dirichlet_epsilon']) * policy + self.args['dirichlet_epsilon'] * dirichlet_noise
-        
-        valid_actions = self.env.get_valid_actions(state)
-        policy = policy * valid_actions
+        policy = (1 - DIRICHLET_EPSILON) * policy + DIRICHLET_EPSILON * self.noise.sample()
         policy = policy / policy.sum()
         root.expand(policy)
         
-        for i in range(self.args['num_mcts_searches']):
+        for i in range(NUM_MCTS_SEARCHES):
             node = root
             
             while node.is_expanded():
                 node = node.select()
                 
-            value, is_terminal = self.env.get_value_and_terminated(node.state, node.action_taken)
-            value = self.env.get_opponent_value(value)
+            policy, value = self.model.predict(
+                node.hidden_state.to(device=self.model.device).unsqueeze(0)
+            )
+            policy = torch.softmax(policy, axis=1).squeeze(0).cpu()
             
-            if not is_terminal:
-                policy, value = self.model(
-                    self.env.get_encoded_state(node.state).to(device=self.model.device).unsqueeze(0)
-                )
-                policy = torch.softmax(policy, axis=1).squeeze(0).cpu()
-                valid_actions = self.env.get_valid_actions(node.state)
-                policy = policy * valid_actions
-                policy = policy / policy.sum()
-                
-                value = value.item()
-                
-                node.expand(policy)
-                
+            node.expand(policy)    
             node.backpropagate(value)    
             
         action_probs = torch.zeros(self.env.action_size)

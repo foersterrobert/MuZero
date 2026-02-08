@@ -3,14 +3,14 @@ import torch
 import torch.nn.functional as F
 from tqdm import trange
 from mcts import MCTS
+from config import *
 
 class Trainer:
-    def __init__(self, model, optimizer, env, args):
+    def __init__(self, model, optimizer, env):
         self.model = model
         self.optimizer = optimizer
         self.env = env
-        self.args = args
-        self.mcts = MCTS(model, env, args)
+        self.mcts = MCTS(model, env)
         
     def selfPlay(self):
         memory = []
@@ -23,7 +23,7 @@ class Trainer:
             
             memory.append((neutral_state, action_probs, player))
             
-            temperature_action_probs = action_probs ** (1 / self.args['temperature'])
+            temperature_action_probs = action_probs ** (1 / TEMPERATURE)
             temperature_action_probs = temperature_action_probs / temperature_action_probs.sum()
             action = torch.distributions.Categorical(temperature_action_probs).sample().item()
             
@@ -46,8 +46,8 @@ class Trainer:
                 
     def train(self, memory):
         random.shuffle(memory)
-        for batchIdx in range(0, len(memory), self.args['batch_size']):
-            sample = memory[batchIdx:batchIdx+self.args['batch_size']]
+        for batch_idx in range(0, len(memory), BATCH_SIZE):
+            sample = memory[batch_idx:batch_idx+BATCH_SIZE]
             state, policy_targets, value_targets = zip(*sample)
             
             state = torch.stack(state).to(self.model.device)
@@ -65,15 +65,15 @@ class Trainer:
             self.optimizer.step()
     
     def learn(self):
-        for iteration in range(self.args['num_iterations']):
+        for iteration in range(NUM_ITERATIONS):
             memory = []
             
             self.model.eval()
-            for i in trange(self.args['num_selfPlay_iterations']):
+            for i in trange(NUM_SELF_PLAY_ITERATIONS):
                 memory += self.selfPlay()
                 
             self.model.train()
-            for epoch in trange(self.args['num_epochs']):
+            for i in trange(NUM_EPOCHS):
                 self.train(memory)
             
             torch.save(self.model.state_dict(), f"Models/{self.env}/model_{iteration}.pt")
