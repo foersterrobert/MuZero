@@ -5,9 +5,9 @@ import numpy as np
 # 3x3 Tic-Tac-Toe only. Observation: (B, 3, 3, 3). Hidden: (B, 3, 3, 3). Actions: 9.
 
 class MuZero(nn.Module):
-    def __init__(self, environment, device):
+    def __init__(self, env, device):
         super().__init__()
-        self.environment = environment
+        self.env = env
         self.device = device
         self.representationFunction = RepresentationFunction()
         self.dynamicsFunction = DynamicsFunction()
