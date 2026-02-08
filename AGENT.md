@@ -3,9 +3,11 @@ Minimal MuZero for 3×3 Tic-Tac-Toe: torch-based environment and small conv mode
 
 # Questions
 How to handle termination in dynamics MCTS?
-How to handle change of perspective in dynamics MCTS? (for value and state)
+How to handle change of perspective in dynamics MCTS? (for value)
 Irwie store reward in nodes?
 Offset reward, value komisch
+NaN bug, vllt divide by zero
+Currently worse than random?
 
 ---
 

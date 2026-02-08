@@ -3,6 +3,7 @@ import torch
 import torch.nn.functional as F
 from tqdm import trange
 from mcts import MCTS
+from eval import evaluate_model_vs_random
 from config import *
 from replayBuffer import *
 
@@ -98,6 +99,14 @@ class Trainer:
             self.model.train()
             for i in trange(NUM_EPOCHS):
                 self.train()
+
+            eval_results = evaluate_model_vs_random(self.model, self.env, num_games=10)
+            print(
+                f"[Eval {iteration + 1}/{NUM_ITERATIONS}] "
+                f"model_wins={eval_results['model_wins']} "
+                f"random_wins={eval_results['random_wins']} "
+                f"draws={eval_results['draws']}"
+            )
             
             torch.save(self.model.state_dict(), f"Models/model_{iteration}.pt")
             torch.save(self.optimizer.state_dict(), f"Models/optimizer_{iteration}.pt")

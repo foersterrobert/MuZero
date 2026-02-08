@@ -56,7 +56,7 @@ class DynamicsFunction(nn.Module):
             nn.Conv2d(hidden, 3, 3, padding=1),
             nn.Tanh(),
         )
-        self.reward = nn.Sequential(nn.Flatten(), nn.Linear(3 * 3 * 3, 1))
+        self.reward = nn.Sequential(nn.Flatten(), nn.Linear(3 * 3 * 3, 1), nn.Tanh())
 
     def forward(self, x):
         h = self.net(x)
@@ -73,7 +73,7 @@ class PredictionFunction(nn.Module):
             nn.ReLU(),
         )
         self.policy = nn.Sequential(nn.Flatten(), nn.Linear(16 * 3 * 3, 9))
-        self.value = nn.Sequential(nn.Flatten(), nn.Linear(16 * 3 * 3, 1))
+        self.value = nn.Sequential(nn.Flatten(), nn.Linear(16 * 3 * 3, 1), nn.Tanh())
 
     def forward(self, x):
         x = self.shared(x)

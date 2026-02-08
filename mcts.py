@@ -85,6 +85,7 @@ class MCTS:
                 node.hidden_state.to(device=self.model.device)
             )
             policy = torch.softmax(policy, axis=1).squeeze(0).cpu()
+            value = self.env.get_opponent_value(value.item())
             
             node.expand(policy)    
             node.backpropagate(value)    
