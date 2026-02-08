@@ -26,7 +26,7 @@ Minimal MuZero for 3×3 Tic-Tac-Toe: torch-based environment and small conv mode
 ## Environment (`env.py`)
 - **State**: Tensor shape **(3, 3)**. Values: `1` (current player), `-1` (opponent), `0` (empty).
 - **Encoded state**: `get_encoded_state(state)` → **(3, 3, 3)** (channels: one-hot for -1, 0, 1). For the model, use `.unsqueeze(0)` to get **(1, 3, 3, 3)**.
-- **Valid moves**: `get_valid_moves(state)` → **(9,)**, float 0/1.
+- **Valid actions**: `get_valid_actions(state)` → **(9,)**, float 0/1.
 - **Action**: Integer in `[0, 8]`; cell index = `row * 3 + col`. Mutates `state` in place in `get_next_state`.
 
 ## Model (`model.py`)

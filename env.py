@@ -16,7 +16,7 @@ class TicTacToe:
         state[row, column] = player
         return state
 
-    def get_valid_moves(self, state):
+    def get_valid_actions(self, state):
         return (state.reshape(9) == 0).to(torch.float32)
 
     def check_win(self, state, action):
@@ -32,7 +32,7 @@ class TicTacToe:
     def get_value_and_terminated(self, state, action):
         if self.check_win(state, action):
             return 1.0, True
-        if self.get_valid_moves(state).sum() == 0:
+        if self.get_valid_actions(state).sum() == 0:
             return 0.0, True
         return 0.0, False
 

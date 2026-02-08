@@ -1,6 +1,6 @@
-import numpy as np
 import math
 import torch
+import torch.distributions as dist
 
 class Node:
     def __init__(self, env, args, state, parent=None, action_taken=None, prior=0, visit_count=0):
@@ -20,7 +20,7 @@ class Node:
     
     def select(self):
         best_child = None
-        best_ucb = -np.inf
+        best_ucb = -float('inf')
         
         for child in self.children:
             ucb = self.get_ucb(child)
@@ -39,12 +39,13 @@ class Node:
     
     def expand(self, policy):
         for action, prob in enumerate(policy):
-            if prob > 0:
+            prob_value = prob.item() if isinstance(prob, torch.Tensor) else prob
+            if prob_value > 0:
                 child_state = self.state.clone()
                 child_state = self.env.get_next_state(child_state, action, 1)
                 child_state = self.env.change_perspective(child_state, player=-1)
 
-                child = Node(self.env, self.args, child_state, self, action, prob)
+                child = Node(self.env, self.args, child_state, self, action, prob_value)
                 self.children.append(child)
             
     def backpropagate(self, value):
@@ -66,18 +67,18 @@ class MCTS:
         root = Node(self.env, self.args, state, visit_count=1)
         
         policy, _ = self.model(
-            torch.tensor(self.env.get_encoded_state(state), device=self.model.device).unsqueeze(0)
+            self.env.get_encoded_state(state).to(device=self.model.device).unsqueeze(0)
         )
-        policy = torch.softmax(policy, axis=1).squeeze(0).cpu().numpy()
-        policy = (1 - self.args['dirichlet_epsilon']) * policy + self.args['dirichlet_epsilon'] \
-            * np.random.dirichlet([self.args['dirichlet_alpha']] * self.env.action_size)
+        policy = torch.softmax(policy, axis=1).squeeze(0).cpu()
+        dirichlet_noise = dist.Dirichlet(torch.ones(self.env.action_size) * self.args['dirichlet_alpha']).sample()
+        policy = (1 - self.args['dirichlet_epsilon']) * policy + self.args['dirichlet_epsilon'] * dirichlet_noise
         
-        valid_moves = self.env.get_valid_moves(state)
-        policy *= valid_moves
-        policy /= np.sum(policy)
+        valid_actions = self.env.get_valid_actions(state)
+        policy = policy * valid_actions
+        policy = policy / policy.sum()
         root.expand(policy)
         
-        for search in range(self.args['num_mcts_searches']):
+        for i in range(self.args['num_mcts_searches']):
             node = root
             
             while node.is_expanded():
@@ -88,12 +89,12 @@ class MCTS:
             
             if not is_terminal:
                 policy, value = self.model(
-                    torch.tensor(self.env.get_encoded_state(node.state), device=self.model.device).unsqueeze(0)
+                    self.env.get_encoded_state(node.state).to(device=self.model.device).unsqueeze(0)
                 )
-                policy = torch.softmax(policy, axis=1).squeeze(0).cpu().numpy()
-                valid_moves = self.env.get_valid_moves(node.state)
-                policy *= valid_moves
-                policy /= np.sum(policy)
+                policy = torch.softmax(policy, axis=1).squeeze(0).cpu()
+                valid_actions = self.env.get_valid_actions(node.state)
+                policy = policy * valid_actions
+                policy = policy / policy.sum()
                 
                 value = value.item()
                 
@@ -101,8 +102,8 @@ class MCTS:
                 
             node.backpropagate(value)    
             
-        action_probs = np.zeros(self.env.action_size)
+        action_probs = torch.zeros(self.env.action_size)
         for child in root.children:
             action_probs[child.action_taken] = child.visit_count
-        action_probs /= np.sum(action_probs)
+        action_probs /= action_probs.sum()
         return action_probs
